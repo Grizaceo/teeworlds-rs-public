@@ -1,0 +1,6 @@
+# quad-net y sapp-jsutils declaran sus funciones JS como `extern "C"` plano
+# (sin #[link(wasm_import_module)]). Sin este flag wasm-ld falla con
+# "undefined symbol"; con él los símbolos quedan como imports de `env`,
+# que es donde mq_js_bundle.js los registra.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-args=--allow-undefined"]

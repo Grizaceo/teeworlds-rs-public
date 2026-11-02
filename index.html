@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>teeworlds-rs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0d1018; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+  #loading {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #aab; font: 16px/1.4 monospace; background: #0d1018; z-index: 10;
+    flex-direction: column; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="loading">loading teeworlds-rs.wasm…</div>
+<canvas id="glcanvas" tabindex="1" oncontextmenu="event.preventDefault()"></canvas>
+<script src="mq_js_bundle.js"></script>
+<script>
+  // Plugin propio: expone window.location[prop] al wasm (sapp-jsutils
+  // no da acceso a objetos globales).
+  miniquad_add_plugin({
+    name: "twrs_env",
+    version: 1,
+    register_plugin: function(importObject) {
+      importObject.env.twrs_location = function(ptr, len) {
+        var prop = UTF8ToString(ptr, len);
+        var v = window.location[prop];
+        if (typeof v !== "string") v = "";
+        var bytes = new TextEncoder().encode(v);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(v, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      };
+    }
+  });
+  load("teeworlds_rs.wasm");
+  var loading = document.getElementById("loading");
+  var t0 = Date.now();
+  var loadTimer = setInterval(function() {
+    if (typeof wasm_exports !== "undefined") {
+      loading.style.display = "none";
+      clearInterval(loadTimer);
+    } else if (Date.now() - t0 > 15000) {
+      loading.textContent = "error cargando el wasm — revisa la consola (F12)";
+      clearInterval(loadTimer);
+    }
+  }, 100);
+  const c = document.getElementById("glcanvas");
+  c.focus();
+  c.addEventListener("click", () => c.focus());
+  window.addEventListener("keydown", e => {
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.code)) {
+      e.preventDefault();
+    }
+  });
+</script>
+</body>
+</html>
