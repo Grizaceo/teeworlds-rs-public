@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>teeworlds-rs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0d1018; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+  #loading {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #aab; font: 16px/1.4 monospace; background: #0d1018; z-index: 10;
+    flex-direction: column; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="loading">loading teeworlds-rs.wasm…</div>
+<canvas id="glcanvas" tabindex="1" oncontextmenu="event.preventDefault()"></canvas>
+<script src="mq_js_bundle.js"></script>
+<script>
+  // Clave de streamer (formulario `?streamer`, abajo); se entrega una vez.
+  var TWRS_KEY = "";
+  // Plugin propio: expone window.location[prop] al wasm (sapp-jsutils
+  // no da acceso a objetos globales).
+  miniquad_add_plugin({
+    name: "twrs_env",
+    version: 1,
+    register_plugin: function(importObject) {
+      function jsString(v) {
+        var bytes = new TextEncoder().encode(v);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(v, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      }
+      importObject.env.twrs_location = function(ptr, len) {
+        var prop = UTF8ToString(ptr, len);
+        var v = window.location[prop];
+        if (typeof v !== "string") v = "";
+        return jsString(v);
+      };
+      importObject.env.twrs_take_key = function() {
+        var v = TWRS_KEY;
+        TWRS_KEY = "";
+        return jsString(v);
+      };
+    }
+  });
+  // Plugin propio: localStorage get/set para los binds (Fase 1).
+  miniquad_add_plugin({
+    name: "twrs_store",
+    version: 1,
+    register_plugin: function(importObject) {
+      importObject.env.twrs_store_get = function(ptr, len) {
+        var k = UTF8ToString(ptr, len);
+        var v = null;
+        try { v = window.localStorage.getItem(k); } catch (e) {}
+        if (typeof v !== "string") v = "";
+        var bytes = new TextEncoder().encode(v);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(v, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      };
+      importObject.env.twrs_store_set = function(kptr, klen, vptr, vlen) {
+        var k = UTF8ToString(kptr, klen);
+        var v = UTF8ToString(vptr, vlen);
+        try { window.localStorage.setItem(k, v); } catch (e) {}
+      };
+    }
+  });
+  // Plugin propio: fetch HTTP para el workshop (subir/listar/descargar
+  // mapas). El wasm inicia requests y consulta el resultado por id.
+  miniquad_add_plugin({
+    name: "twrs_http",
+    version: 1,
+    register_plugin: function(importObject) {
+      if (typeof window.__twrs_http === "undefined") {
+        window.__twrs_http = { next: 1, results: {} };
+      }
+      var H = window.__twrs_http;
+      importObject.env.twrs_http_request = function(mPtr, mLen, uPtr, uLen, hPtr, hLen, bPtr, bLen) {
+        var id = H.next++;
+        var method = UTF8ToString(mPtr, mLen);
+        var url = UTF8ToString(uPtr, uLen);
+        var hdrs = UTF8ToString(hPtr, hLen);
+        var headers = {};
+        hdrs.split("\n").forEach(function(l) {
+          var i = l.indexOf(":");
+          if (i > 0) headers[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+        });
+        var opts = { method: method, headers: headers };
+        if (bLen > 0) {
+          opts.body = new Uint8Array(wasm_memory.buffer, bPtr, bLen).slice(0);
+        }
+        H.results[id] = { status: 0, text: "" };
+        fetch(url, opts)
+          .then(function(r) {
+            return r.arrayBuffer().then(function(buf) {
+              // texto UTF-8 o binario → base64 con prefijo "b64:"
+              var bytes = new Uint8Array(buf);
+              var isTxt = (r.headers.get("content-type") || "").indexOf("octet-stream") < 0;
+              var body;
+              if (isTxt) {
+                body = new TextDecoder().decode(bytes);
+              } else {
+                var bin = "";
+                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                body = "b64:" + btoa(bin);
+              }
+              H.results[id] = { status: r.status, text: body };
+            });
+          })
+          .catch(function(e) { H.results[id] = { status: -1, text: String(e) }; });
+        return id;
+      };
+      importObject.env.twrs_http_poll = function(id) {
+        var r = H.results[id];
+        var s = r ? (r.status + "\n" + r.text) : "0\n";
+        var bytes = new TextEncoder().encode(s);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(s, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      };
+    }
+  });
+  // Plugin propio: voz WebRTC por zonas de estómago (Fase 8d).
+  // El server decide los pares permitidos; este plugin lleva mic+PTT,
+  // la mesh RTC y el «pío» sintetizado (la voz real nunca sale de un
+  // estómago: quien no te oye recibe solo el pío).
+  miniquad_add_plugin({
+    name: "twrs_voice",
+    version: 1,
+    register_plugin: function(importObject) {
+      if (typeof window.__twrs_voice === "undefined") {
+        window.__twrs_voice = {
+          me: 0, mic: null, ctx: null, analyser: null,
+          peers: {},        // id -> {pc, dir, audio, micAttached}
+          outbox: [],       // señales pendientes {to,data}
+          ptt: false, speaking: false,
+          err: "", started: false, starting: false,
+          pioLast: {},
+        };
+      }
+      var V = window.__twrs_voice;
+      var RTC_CFG = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+      function sig(to, data) { V.outbox.push({ to: to, data: JSON.stringify(data) }); }
+      function ensureCtx() {
+        if (!V.ctx) {
+          V.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          V.pioGain = V.ctx.createGain();
+          V.pioGain.gain.value = 0.12;
+          V.pioGain.connect(V.ctx.destination);
+        }
+        if (V.ctx.state === "suspended") V.ctx.resume();
+      }
+      // Un único transceiver de audio por par; dirección según mi dir:
+      // dir&1 = yo mando (me oyen), dir&2 = yo oigo.
+      function dirOf(d) {
+        return d === 3 ? "sendrecv" : (d & 2) ? "recvonly" : (d & 1) ? "sendonly" : "inactive";
+      }
+      function ensureTranceiver(id) {
+        var P = V.peers[id];
+        if (!P) return;
+        var tc = P.pc.getTransceivers()[0];
+        if (!tc) {
+          if (V.mic && (P.dir & 1)) {
+            tc = P.pc.addTransceiver(V.mic.getAudioTracks()[0], { direction: dirOf(P.dir) });
+            P.micAttached = true;
+          } else {
+            tc = P.pc.addTransceiver("audio", { direction: (P.dir & 2) ? "recvonly" : "inactive" });
+          }
+          return;
+        }
+        if ((P.dir & 1) && V.mic && !P.micAttached) {
+          tc.sender.replaceTrack(V.mic.getAudioTracks()[0]);
+          P.micAttached = true;
+        }
+        tc.direction = dirOf(P.dir);
+      }
+      function makePeer(id, dir) {
+        var pc = new RTCPeerConnection(RTC_CFG);
+        var P = { pc: pc, dir: dir, audio: null, micAttached: false };
+        V.peers[id] = P;
+        pc.onicecandidate = function(ev) {
+          if (ev.candidate) sig(id, { ice: ev.candidate.toJSON() });
+        };
+        pc.onnegotiationneeded = function() {
+          // Quien ofrece es el id menor; el otro solo responde.
+          if (V.me === 0 || V.me > id) return;
+          pc.createOffer().then(function(o) { return pc.setLocalDescription(o); })
+            .then(function() { sig(id, { sdp: pc.localDescription }); })
+            .catch(function(e) { V.err = String(e); });
+        };
+        pc.ontrack = function(ev) {
+          var a = document.createElement("audio");
+          a.autoplay = true;
+          a.srcObject = ev.streams[0];
+          P.audio = a;
+        };
+        // Solo el id menor prepara el transceiver (y ofrece); el mayor
+        // espera el offer y lo responde con SU dir.
+        if (V.me !== 0 && V.me < id) ensureTranceiver(id);
+      }
+      importObject.env.twrs_voice_set_me = function(id) { V.me = id; };
+      importObject.env.twrs_voice_start = function() {
+        if (V.started) return 1;
+        if (V.starting) return 0;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          V.err = "sin getUserMedia"; return -1;
+        }
+        V.starting = true;
+        ensureCtx();
+        navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+          .then(function(s) {
+            V.mic = s;
+            var src = V.ctx.createMediaStreamSource(s);
+            V.analyser = V.ctx.createAnalyser();
+            V.analyser.fftSize = 512;
+            src.connect(V.analyser);
+            // PTT por defecto: el track nace silenciado.
+            s.getAudioTracks().forEach(function(t) { t.enabled = V.ptt; });
+            V.started = true; V.starting = false;
+            Object.keys(V.peers).forEach(function(id) { ensureTranceiver(Number(id)); });
+          })
+          .catch(function(e) { V.err = String(e); V.starting = false; });
+        return 0;
+      };
+      importObject.env.twrs_voice_ptt = function(down) {
+        V.ptt = down === 1;
+        if (V.mic) V.mic.getAudioTracks().forEach(function(t) { t.enabled = V.ptt; });
+      };
+      importObject.env.twrs_voice_set_peer = function(id, dir) {
+        var P = V.peers[id];
+        if (!P) { makePeer(id, dir); return; }
+        if (P.dir !== dir) { P.dir = dir; ensureTranceiver(id); }
+      };
+      importObject.env.twrs_voice_drop_peer = function(id) {
+        var P = V.peers[id];
+        if (!P) return;
+        try { P.pc.close(); } catch (e) {}
+        if (P.audio) P.audio.srcObject = null;
+        delete V.peers[id];
+      };
+      importObject.env.twrs_rtc_signal = function(from, ptr, len) {
+        var data;
+        try { data = JSON.parse(UTF8ToString(ptr, len)); } catch (e) { return; }
+        var P = V.peers[from];
+        if (!P) return; // señal de un par no permitido → descartar
+        var pc = P.pc;
+        if (data.sdp) {
+          pc.setRemoteDescription(data.sdp).then(function() {
+            // El remote creó el transceiver: lo armo con MI dir.
+            ensureTranceiver(from);
+            if (data.sdp.type === "offer") {
+              return pc.createAnswer().then(function(a) { return pc.setLocalDescription(a); })
+                .then(function() { sig(from, { sdp: pc.localDescription }); });
+            }
+          }).catch(function(e) { V.err = String(e); });
+        } else if (data.ice) {
+          pc.addIceCandidate(data.ice).catch(function(e) { V.err = String(e); });
+        }
+      };
+      importObject.env.twrs_rtc_poll = function() {
+        var s = "";
+        if (V.outbox.length) {
+          s = V.outbox.map(function(m) { return m.to + "\x1f" + m.data; }).join("\x1e");
+          V.outbox.length = 0;
+        }
+        var bytes = new TextEncoder().encode(s);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(s, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      };
+      importObject.env.twrs_voice_state = function() {
+        var speaking = 0;
+        if (V.mic && V.analyser && V.ptt) {
+          var buf = new Uint8Array(V.analyser.fftSize);
+          V.analyser.getByteTimeDomainData(buf);
+          var sum = 0;
+          for (var i = 0; i < buf.length; i++) { var d = (buf[i] - 128) / 128; sum += d * d; }
+          if (Math.sqrt(sum / buf.length) > 0.02) speaking = 1;
+        }
+        V.speaking = speaking === 1;
+        var s = (V.started ? 1 : 0) + "\x1f" + speaking + "\x1f" + (V.err || "");
+        var bytes = new TextEncoder().encode(s);
+        var p = wasm_exports.allocate_vec_u8(bytes.length);
+        stringToUTF8(s, new Uint8Array(wasm_memory.buffer, p, bytes.length), 0, bytes.length);
+        return importObject.env.js_create_string(p, bytes.length);
+      };
+      importObject.env.twrs_voice_pio = function(id) {
+        try {
+          ensureCtx();
+          var now = performance.now();
+          if (now - (V.pioLast[id] || 0) < 450) return;
+          V.pioLast[id] = now;
+          var t0 = V.ctx.currentTime;
+          var o = V.ctx.createOscillator();
+          var g = V.ctx.createGain();
+          o.type = "sine";
+          var base = 620 + (id % 7) * 45;
+          o.frequency.setValueAtTime(base, t0);
+          o.frequency.exponentialRampToValueAtTime(390, t0 + 0.24);
+          g.gain.setValueAtTime(0.0, t0);
+          g.gain.linearRampToValueAtTime(1.0, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
+          o.connect(g); g.connect(V.pioGain);
+          o.start(t0); o.stop(t0 + 0.32);
+        } catch (e) {}
+      };
+      importObject.env.twrs_voice_stop = function() {
+        Object.keys(V.peers).forEach(function(id) {
+          importObject.env.twrs_voice_drop_peer(Number(id));
+        });
+        if (V.mic) V.mic.getTracks().forEach(function(t) { t.stop(); });
+        V.mic = null; V.analyser = null;
+        V.started = false; V.starting = false; V.speaking = false;
+      };
+    }
+  });
+  var loading = document.getElementById("loading");
+  function startGame() {
+    load("teeworlds_rs.wasm");
+    var t0 = Date.now();
+    var loadTimer = setInterval(function() {
+      if (typeof wasm_exports !== "undefined") {
+        loading.style.display = "none";
+        clearInterval(loadTimer);
+      } else if (Date.now() - t0 > 15000) {
+        loading.textContent = "error cargando el wasm — revisa la consola (F12)";
+        clearInterval(loadTimer);
+      }
+    }, 100);
+  }
+  // `?streamer`: pide la STREAMER_KEY antes de cargar. La clave vive solo
+  // en memoria hasta que el wasm la toma para su Hello (nunca en la URL,
+  // localStorage ni el DOM).
+  if (new URLSearchParams(location.search).has("streamer")) {
+    loading.innerHTML =
+      '<form id="skey"><label>clave de streamer<br>' +
+      '<input type="password" autocomplete="off" autofocus></label> ' +
+      '<button>entrar</button></form>';
+    document.getElementById("skey").addEventListener("submit", function(e) {
+      e.preventDefault();
+      var input = e.target.querySelector("input");
+      TWRS_KEY = input.value;
+      input.value = "";
+      loading.textContent = "loading teeworlds-rs.wasm…";
+      startGame();
+    });
+  } else {
+    startGame();
+  }
+  const c = document.getElementById("glcanvas");
+  c.focus();
+  c.addEventListener("click", () => c.focus());
+  window.addEventListener("keydown", e => {
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.code)) {
+      e.preventDefault();
+    }
+  });
+</script>
+</body>
+</html>

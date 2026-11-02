@@ -1,0 +1,4 @@
+/target/
+bots/*/gen_*.bin
+reports/
+node_modules

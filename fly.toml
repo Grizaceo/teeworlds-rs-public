@@ -1,0 +1,22 @@
+# fly.toml — teeworlds-rs
+# Deploy: fly launch (crea app) / fly deploy
+# El cliente se sirve por https → el wasm conecta a wss://<host>/ws mismo origen.
+app = "teeworlds-rs"
+primary_region = "scl"        # Santiago — más cerca de Chile
+
+[build]
+
+[env]
+  PORT = "8303"
+
+[http_service]
+  internal_port = 8303
+  force_https = true
+  auto_stop_machines = "suspend"  # suspende sin tráfico (ahorro); cold start ~1-3s
+  auto_start_machines = true
+  min_machines_running = 0        # subir a 1 para evitar cold starts
+  concurrency = { type = "connections", hard_limit = 250, soft_limit = 200 }
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>teeworlds-rs · Anexo — Ecosistema externo reutilizable</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3342;
+    --text:#d7dde6; --muted:#8b96a8; --accent:#f0a540; --ok:#3fb950;
+    --part:#d29922; --todo:#f85149; --info:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:28px 32px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#161b22,#0e1116)}
+  h1{margin:0 0 6px;font-size:26px}
+  h1 span{color:var(--accent)}
+  h2{font-size:20px;margin:0 0 14px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px}
+  nav{position:sticky;top:0;z-index:5;background:#0e1116ee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 32px;display:flex;gap:16px;flex-wrap:wrap}
+  nav a{color:var(--muted);text-decoration:none;font-size:13px}
+  nav a:hover{color:var(--text)}
+  main{max-width:1180px;margin:0 auto;padding:24px 32px 60px}
+  section{margin:34px 0}
+  code,pre{font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:13px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;margin:8px 0}
+  a{color:var(--info)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi b{display:block;font-size:22px;color:var(--text)}
+  .kpi small{color:var(--muted)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:var(--panel2)}
+  tr:hover td{background:#ffffff05}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .ok{background:#3fb95022;color:var(--ok);border:1px solid #3fb95055}
+  .part{background:#d2992222;color:var(--part);border:1px solid #d2992255}
+  .todo{background:#f8514922;color:var(--todo);border:1px solid #f8514955}
+  .new{background:#58a6ff22;color:var(--info);border:1px solid #58a6ff55}
+  .warn{border-left:3px solid var(--part);background:#d2992210;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  .bad{border-left:3px solid var(--todo);background:#f8514910;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  .good{border-left:3px solid var(--ok);background:#3fb95010;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  footer{padding:18px 32px 30px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>teeworlds-rs · <span>Anexo</span> — Ecosistema Teeworlds externo: material reutilizable</h1>
+  <p class="sub">Anexo del artefacto <a href="ESTADO-BOTS-RL.html">ESTADO-BOTS-RL.html</a> · Investigación web verificada el 2026-11-02 · Todas las fuentes citadas al final (§9). Nada de lo listado se incorporó aún al repo: es un mapa de opciones.</p>
+</header>
+<nav>
+  <a href="#resumen">Resumen</a><a href="#comps">Competencias</a><a href="#bots">Bots / IA</a><a href="#rl">RL y datos</a>
+  <a href="#rust">Libs Rust</a><a href="#mapas">Mapas</a><a href="#assets">Assets</a><a href="#integracion">Integración sugerida</a>
+  <a href="#licencias">Licencias</a><a href="#fuentes">Fuentes</a><a href="ESTADO-BOTS-RL.html">← Artefacto principal</a>
+</nav>
+<main>
+
+<section id="resumen">
+  <h2>Resumen ejecutivo</h2>
+  <p>Pregunta original: ¿alguna competencia de «crear bots para vencer un juego» fue sobre Teeworlds, y qué material público
+  pre-hecho sirve a este repo? Respuesta corta: <b>no existió una competencia formal de bots de Teeworlds</b> (la comunidad
+  lo descartó en 2015 por tamaño), pero sí hay un hackathon reciente con artefactos públicos (<b>OpenEnv Hackathon SF,
+  7-mar-2026 → TeeUnit</b>), un ecosistema de bots hechos por la comunidad, el mayor dataset reproducible de gameplay que
+  existe (teehistorian de DDNet, ~TB desde 2017) y crates Rust listos para <code>cargo add</code>.</p>
+  <div class="kpis">
+    <div class="kpi"><b>~15</b><small>proyectos verificados con repo público</small></div>
+    <div class="kpi"><b>1</b><small>entorno OpenEnv de TW ya publicado (TeeUnit, MIT)</small></div>
+    <div class="kpi"><b>~3 M runs</b><small>teehistorian solo del mapa Tutorial (756 GB); DDNet graba todo desde 2017</small></div>
+    <div class="kpi"><b>18 mapas</b><small>oficiales vanilla (dm/ctf/lms) + miles DDNet descargables</small></div>
+    <div class="kpi"><b>5+</b><small>crates Rust de formatos TW (map/demo/snapshot/teehistorian)</small></div>
+  </div>
+  <div class="good"><b>Quick wins (detalle en §8):</b> conversor <code>.map → from_ascii</code> con <code>twmap</code> (dev-tool);
+  pathfinding tipo nheir como entrada a <code>Brain</code>; behaviour cloning sobre nuestros propios <code>report.bin</code>
+  (gratis, ya existen); adapter OpenEnv sobre <code>crates/gym</code> si se quiere publicar/competir.</div>
+</section>
+
+<section id="comps">
+  <h2>Competencias y hackathons de «bots que juegan» — ¿hubo sobre Teeworlds?</h2>
+  <table>
+    <tr><th>Evento</th><th>Cuándo</th><th>¿Sobre Teeworlds?</th><th>Material que dejó</th></tr>
+    <tr><td><b>Hilo «Yet another bot» (foro oficial)</b></td><td>2015</td><td>Se <i>propuso</i> una competencia estilo
+        StarCraft AI Competition y se descartó: comunidad chica + «TW tiene poca estrategia para ser interesante».
+        Los autores se medían informal: duelos bot-vs-bot en servers propios (BotCTF de nheir, duel 144:100 entre bots).</td>
+        <td>Discusión útil sobre waypoint-graphs autogenerados desde el mapa.</td></tr>
+    <tr><td><b>OpenEnv Hackathon SF</b> (Cerebral Valley)</td><td>7-mar-2026</td><td><b>Sí, indirectamente.</b> Hackathon
+        de entornos OpenEnv; el proyecto «Athens» = <b>TeeUnit</b>, un env OpenEnv donde LLMs/RL juegan Teeworlds 0.7.5
+        (4 bots en el demo). Es el único material de «competencia» real sobre TW encontrado.</td>
+        <td>Repo <code>ziadgit/teeunit</code> (MIT), HF Space <code>ziadbc/teeunit-env</code>, agente entrenado
+        <code>ziadbc/teeunit-agent</code> (Q-learning tabular, JSON descargable). Ver §4.</td></tr>
+    <tr><td><b>Calendario propio</b> (31 hackathons trackeados)</td><td>2026</td><td>Ninguna sobre TW. La más cercana:
+        <b>AMD AI League Match 6</b> — «agente juego de estrategia» (cierra 1-dic-2026): es bots-que-juegan pero de
+        estrategia, no Teeworlds.</td><td>—</td></tr>
+    <tr><td><b>Competencias clásicas de game-AI</b> (contexto)</td><td>varios</td><td>Ninguna usó TW: SSCAIT/AIIDE
+        (StarCraft), BotPrize (UT2004), GVGAI, Fighting Game AI, Battlecode, Terminal, Halite, Battlesnake,
+        Russian AI Cup.</td><td>Formato replicable si algún día se arma un «teeworlds-rs bot cup» propio.</td></tr>
+  </table>
+  <div class="warn"><b>Lectura:</b> el nicho está vacío. Publicar <code>crates/gym</code> como entorno OpenEnv-compatible
+  nos pondría como <i>el segundo env de Teeworlds del mundo</i> — y el único con sim determinista nativa (~256× tiempo real,
+  ver artefacto principal). TeeUnit corre el server real de TW; el nuestro es pura sim en Rust, ordenes de magnitud más
+  rápido para entrenar.</div>
+</section>
+
+<section id="bots">
+  <h2>Bots / IA hechos por la comunidad (qué se puede portar)</h2>
+  <table>
+    <tr><th>Proyecto</th><th>Qué es</th><th>Aprovechable para este repo</th></tr>
+    <tr><td><b>nheir/teeworlds</b> rama <code>server_bot0.7</code></td>
+        <td>La referencia fuerte. Bots server-side en vanilla (el famoso «BotCTF»). Tres piezas: (a) <b>pathfinder</b>
+        sobre grafo de triangulación generado del mapa; (b) <b>simulación de trayectorias de proyectiles</b> en varias
+        direcciones — si alguna pega enemigo, dispara (prioridad Hammer&gt;Laser&gt;Grenade&gt;Shotgun&gt;Gun);
+        (c) selección de objetivo entre pickups/enemigos/lugares random. Config <code>sv_bot_*</code>.</td>
+        <td>Las tres ideas portan directo: A*/grafo sobre celdas libres del tilemap como entrada extra a
+        <code>observe()</code> (hoy solo hay raycasts locales); rollout de proyectil reutilizando la propia sim
+        (granada/láser ya existen); scoring de target vs. nuestro <code>assign_targets</code> determinista.</td></tr>
+    <tr><td><b>TeeworldsBotLib</b> (org propia)</td>
+        <td>API C++ embebible para bots server-side, diseñada para ser <b>pura</b>: <code>Tick(StateIn) → StateOut</code>,
+        sin IO ni red ni estado oculto (estado persistente portable por struct). Debug por razones
+        (<code>DIR(-1, "ir a pickup")</code>), API de dibujo (líneas/texto en coords), hot-reload de <code>.so</code>,
+        metas: portable entre codebases TW/DDNet, testeable 100%, rápida. Desarrollo temprano.</td>
+        <td>Valida nuestro diseño (<code>Brain</code>/<code>Policy</code> ya son funciones puras estado→Input). Ideas a
+        robar: <b>razones anotadas por output</b> (el panel F3 ya muestra target/métricas; agregar «por qué» por acción),
+        hot-reload ≈ nuestro <code>ckpt reload</code>, dibujo de debug ≈ nuestra línea bot→target. Sin licencia
+        declarada en el repo → inspirarse, no copiar código.</td></tr>
+    <tr><td><b>LordSk <code>zomb</code></b>, AssassinTee <code>ZoD2</code>, <code>zChaos</code> (0.6)</td>
+        <td>Bots zombie/infección server-side mencionados en teeworlds/teeworlds#1966 (el issue oficial «Add server
+        sided bots», aún abierto, asignado a nheir).</td>
+        <td>Referencia de comportamiento de persecución simple (zombies que chasean sin armas) — útil para especies
+        tipo «carroñera» o modos PvE futuros.</td></tr>
+    <tr><td><b>infclass/teeworlds-infclassR</b></td>
+        <td>Mod Infection mantenido (rama <code>production</code>). Servidores públicos corren <b>bots de infectados</b>
+        (Discussion #110, may-2026: usuarios preguntan cómo activarlos → existen y funcionan).</td>
+        <td>Bots de melee/persecución probados en producción contra humanos reales.</td></tr>
+    <tr><td><b>DDNetPP/DDNet++</b></td>
+        <td>Server DDNet con NPCs scripteados (ej. <code>blmapchill_police.cpp</code> — policías que persiguen
+        jugadores marcados); el README de TeeworldsBotLib lo cita como ejemplo de bot «viejo estilo» a reemplazar.</td>
+        <td>Ejemplo de bots complejos guiados por script/máquina de estados — patrón para nuestro
+        <code>scripted.rs</code> del gym.</td></tr>
+    <tr><td><b>fasterthanlime/teeworlds-ai</b> (2009, 0.5.1, lenguaje ooc)</td>
+        <td>Primer intento público de AIs client-side (hooks en <code>controls.cpp</code>, clases <code>AI</code>
+        extensibles). Histórico.</td>
+        <td>Solo valor arqueológico.</td></tr>
+    <tr><td><b>chillerbot-*</b> (familia ChillerDragon)</td>
+        <td>Clientes headless/console: <code>chillerbot-ng</code> (DDNet headless + modo pentest anti-servers),
+        <code>chillerbot-h7</code> (0.7 headless), <code>chillerbot-ux</code> (cliente con warlist, auto-reply chat,
+        password manager), <code>-cb</code> (chatbot), <code>-ts</code> (TS client).</td>
+        <td>No hablan nuestro protocolo (es el real de TW), pero referencian features: warlist ≈
+        <code>assign_targets</code>/<code>human_cap</code>; el modo pentest ≈ nuestro <code>wscheck</code> con esteroides
+        (fuzzing de chat/comandos contra el server).</td></tr>
+    <tr><td><b>KRX Client / Shalawa Client</b></td>
+        <td>Cheat clients comerciales cerrados basados en DDNet: aimbot, <b>TAS</b> (grabar/replay inputs con TPS
+        variable, rewind/forward por tick, path visualization), dummy-fly, gores-bot, «legit mode» humanizado.</td>
+        <td>(a) Referencia de features para un modo replay/TAS propio del modo <code>race</code> (ghost de mejor run —
+        nuestro recorder determinista ya lo permite). (b) Si el server público crece, los cheaters existen — conviene
+        rate-limits y validación server-side temprano.</td></tr>
+  </table>
+</section>
+
+<section id="rl">
+  <h2>RL, entornos y datos de gameplay</h2>
+  <table>
+    <tr><th>Proyecto</th><th>Qué es</th><th>Aprovechable</th></tr>
+    <tr><td><b>ziadgit/teeunit</b> («Athens», OpenEnv Hackathon SF)</td>
+        <td>Env OpenEnv-compatible, MIT: server real <code>teeworlds_srv</code> 0.7.5 + bots que conectan como clientes
+        UDP reales + FastAPI <code>/reset /step /step_all /state /health /ws</code>. <code>TeeInput</code> es 1:1 con
+        <code>PlayerInput</code> (direction, target_x/y, jump, fire, hook, wanted_weapon — igual que nuestro
+        <code>Input</code>). Obs desde snapshots. Rewards: +10 kill, −5 death, +0.1/HP daño. Modo turn-based
+        (ticks_per_step). Docker <code>ghcr.io/ziadgit/teeunit</code>, notebooks y agentes de ejemplo
+        (<code>play_agent.py</code>, <code>play_llm_agent.py</code>).</td>
+        <td>Blueprint para exponer <code>crates/gym</code> como env OpenEnv (misma API, pero sim nativa: ~12.8 k
+        ticks/s vs correr el juego real). Su agente publicado sirve como baseline «a superar». Su espacio de acción
+        confirma que nuestro <code>Input</code> ya es el formato estándar.</td></tr>
+    <tr><td><b>meta-pytorch/OpenEnv</b> (framework)</td>
+        <td>Estándar de entornos de RL agéntico (HF): <code>reset()/step()/state()</code> sync/async sobre WebSocket,
+        cada env = imagen Docker (local, cloud sandbox u HF Space), 40+ envs, expone tools por <code>/mcp</code>,
+        integra TRL/torchforge/SkyRL/ART/Harbor (ejecuta Claude Code/Codex/etc. como agentes).</td>
+        <td>Si se publica el gym: spec a seguir + canal de distribución (HF Spaces) + hackathons de Cerebral Valley
+        que aceptan envs (precedente: Athens).</td></tr>
+    <tr><td><b>timakro/tmlp</b> (2019)</td>
+        <td>«Teeworlds Machine Learning Project»: fork del server TW para extraer estados + A2C con RNN en Python.
+        Resultado honesto del autor: aprendió a no matarse solo, no aprendió a pelear (sin tuning, posibles bugs).</td>
+        <td>Evidencia de que A2C crudo < ES en este dominio: nuestro OpenAI-ES antithetic sí produce kills/hooking.
+        También un ejemplo de cómo instrumentar un server TW para estados (por si algún día se quiere comparar).</td></tr>
+    <tr><td><b>teehistorian</b> (formato DDNet)</td>
+        <td>DDNet graba <b>todo input de todo jugador en sus servers oficiales desde 2017</b> — terabytes en formato
+        ligero documentado (mensajes PLAYER_NEW/DIFF, INPUT_DIFF, FINISH…). Es posiblemente la mayor colección de
+        gameplay reproducible que existe en videojuegos. Acceso: se pide a los admins DDNet (precedente: pati.ga
+        «TwMillion» obtuvo 756 GB ≈ 3 M runs solo del mapa Tutorial).</td>
+        <td>Datos humanos reales para imitation learning o análisis de estilo (ej. medir cuánto hookan los humanos
+        buenos vs. nuestro hook-camping del 90 %). No es público en bulk: hay que pedirlo.</td></tr>
+    <tr><td><b>iMilchshake/teehee-extractor</b> (Rust)</td>
+        <td>Crate/binario: archivos teehistorian → HDF5 <code>(seq, ticks, features)</code> con
+        <code>move_dir, jump, fire, hook, vel_x/y, aim_angle, aim_distance</code>; filtros AFK, teleports, cortes por
+        muerte; paralelo por threads; <code>meta.csv</code> por secuencia.</td>
+        <td>El pipeline de extracción ya hecho. Sus features son casi el espejo de nuestro <code>Input</code> —
+        behaviour cloning directo si se consiguen los .teehistorian.</td></tr>
+    <tr><td><b>ddnet.tw/stats</b> + <b>ExP98/Teeworlds-DDNet-Statistics</b></td>
+        <td>Dump público de la DB de DDNet (ranks, finishes por mapa/jugador) + notebooks de análisis.</td>
+        <td>Curaduría de dificultad de mapas (finish-rate) → curriculum de mapas race por dificultad real.</td></tr>
+    <tr><td><b>Nuestro propio recorder</b> (ya existe)</td>
+        <td><code>crates/gym/report.rs</code> graba snapshots World + minds + inputs por tick, con replay verificado
+        por hash — es un «teehistorian propio».</td>
+        <td>BC sobre partidas propias de inmediato (bots buenos → pre-entrenar nuevos brains); si el usuario juega
+        por el cliente, grabar esas sesiones = datos humanos del propio juego sin depender de DDNet.</td></tr>
+  </table>
+</section>
+
+<section id="rust">
+  <h2>Librerías Rust y formatos</h2>
+  <table>
+    <tr><th>Proyecto</th><th>Qué es</th><th>Notas</th></tr>
+    <tr><td><b>twmap</b> (Patiga, crates.io 0.16.0)</td>
+        <td>Parser/editor completo de <code>.map</code> (TW 0.7 y DDNet 0.6): <code>TwMap::parse</code>, groups/layers,
+        <code>GameLayer</code>/<code>GameTile</code>, entities, images/sounds, MapDir, rotate/mirror/edit.</td>
+        <td><div class="bad"><b>AGPL-3.0-only.</b> NO linkear al server ni a binarios distribuidos (AGPL cuenta uso por
+        red). Usar como <b>dev-tool offline</b> (<code>map2ascii</code>): el ASCII generado es dato, no derivado del
+        código. Si se quisiera parse en runtime, usar libtw2 o ddnet-rs en su lugar.</div></td></tr>
+    <tr><td><b>heinrich5991/libtw2</b></td>
+        <td>La documentación canónica de formatos TW/DDNet (<code>doc/</code>: datafile, map, protocol, snapshot,
+        teehistorian, <code>map_v4.ksy</code> de Kaitai) + crates Rust asociados (datafile, map, demo, snapshot,
+        gamenet_*, teehistorian, packer…). Su propio doc recomienda twmap de Patiga para mapas.</td>
+        <td>Referencia obligada para: leer demos/teehistorian, compat de protocolo si algún día se reabre ese scope,
+        y spec del formato para un parser propio liviano (solo tiles+entities) sin la AGPL.</td></tr>
+    <tr><td><b>ddnet/ddnet-rs</b> (Apache-2.0)</td>
+        <td>Reescritura completa de DDNet en Rust (~100 crates): cliente, game-server, <b>editor de mapas
+        colaborativo en egui</b>, legacy-proxy (compat con clientes viejos), demo playback, <code>wasm-runtime</code>
+        para mods sandboxed.</td>
+        <td>Referencia arquitectónica gigante y código porteable (Apache-2.0): su port del gamecore/physics, su
+        prediction, y sobre todo <b>su editor para Fase 7</b> y <b>su wasm-runtime para el workshop</b> (mods/mapa de
+        usuarios sandboxeados — exactamente el problema del workshop planeado).</td></tr>
+    <tr><td><b>jxsl13/twmap</b> (Go)</td>
+        <td>Parser .map en Go con mapres embebidos y licencias por archivo detalladas (fonts OFL, etc.).</td>
+        <td>Alternativa si se prefiere tool externo en vez de crate; buena referencia de licencias de mapres.</td></tr>
+    <tr><td><b>msiglreith/teebot</b></td>
+        <td>Bot de Discord para torneos de TW (Rust, chico).</td>
+        <td>Widget «torneo/ladder» futuro: pattern ya hecho.</td></tr>
+    <tr><td><b>teewebs.net / teeworlds.leaningtech.com</b></td>
+        <td>Ports del juego real a web (emscripten/cheerp) — ya citados en las decisiones del repo.</td>
+        <td>Solo como benchmark de UX/presentación.</td></tr>
+  </table>
+</section>
+
+<section id="mapas">
+  <h2>Mapas: fuentes y conversión a <code>Map::from_ascii</code></h2>
+  <h3>Fuentes verificadas</h3>
+  <table>
+    <tr><th>Fuente</th><th>Contenido</th><th>Notas</th></tr>
+    <tr><td><b>teeworlds/teeworlds-maps</b></td><td>Las 18 oficiales: <code>dm1-3, dm6-9, ctf1-8, lms1</code>.
+        Licencia «as-is» (misma del código TW).</td><td>Las más convertibles: solo tiles SOLID/DEATH/NOHOOK +
+        entities de spawn/pickup — encajan casi 1:1 con nuestro alfabeto.</td></tr>
+    <tr><td><b>ddnet/ddnet-maps</b></td><td>Todos los releases oficiales DDNet en
+        <code>types/{novice, moderate, brutal, insane, oldschool, solo, race, fun, dummy, event, ddmax.easy,
+        ddmax.next, ddmax.nut, ddmax.pro}</code>. Sync diario.</td><td>Miles de mapas; calidad curada por DDNet.
+        Autoría por mapa en <code>Info.author</code> → atribuir en el .txt convertido.</td></tr>
+    <tr><td><b>maps.ddnet.org</b></td><td>Descarga individual + <code>compilations/*.zip</code> por categoría
+        (novice 69 MB, race 43 MB, solo 142 MB…).</td><td>Ideal para bajar un subset sin clonar el repo entero
+        (946 MB).</td></tr>
+    <tr><td><b>ddnet.org/releases</b></td><td>Historial de releases con metadata, también en JSON.</td>
+        <td>Feed para un «mapa de la semana» automatizado.</td></tr>
+  </table>
+  <h3>Tabla de conversión de tiles (game layer → ASCII)</h3>
+  <table>
+    <tr><th>.map (game layer)</th><th>id</th><th>ASCII</th><th>Nota</th></tr>
+    <tr><td>TILE_AIR</td><td>0</td><td><code>.</code>/espacio</td><td>—</td></tr>
+    <tr><td>TILE_SOLID</td><td>1</td><td><code>#</code></td><td>—</td></tr>
+    <tr><td>TILE_DEATH</td><td>2</td><td><code>X</code></td><td>—</td></tr>
+    <tr><td>TILE_NOHOOK</td><td>3</td><td><code>N</code></td><td>—</td></tr>
+    <tr><td>TILE_FINISH</td><td>34</td><td><code>F</code></td><td>race</td></tr>
+    <tr><td>TILE_START</td><td>33</td><td><code>1..9</code>/<code>S</code></td><td>orden de lectura → spawn numerado, excedentes a <code>S</code></td></tr>
+    <tr><td>TILE_JUMP / REFILL_JUMPS / WALLJUMP</td><td>7/32/16</td><td><code>.</code> + warning</td><td>sin equivalente hoy; candidatos si se implementa jump-tile</td></tr>
+    <tr><td>freeze/tele/switch/speedup/tune/stop/checkpoint/etc.</td><td>resto</td><td><code>.</code> + reporte</td><td>mecánicas DDNet sin equivalente — el mapa queda «recortado»</td></tr>
+    <tr><td><b>entities layer</b>: SPAWN / SPAWN_RED / SPAWN_BLUE</td><td>1/2/3</td><td><code>1..9</code>/<code>S</code></td><td>spawns vanilla</td></tr>
+    <tr><td>entities: ARMOR_1, HEALTH_1, WEAPON_*</td><td>6-11, 35-38</td><td><code>.</code> hoy</td><td>futuros pickups (ver «Integración»)</td></tr>
+    <tr><td>entities: FLAGSTAND_RED/BLUE</td><td>4/5</td><td><code>.</code> hoy</td><td>futuro CTF</td></tr>
+  </table>
+  <div class="warn"><b>Caveats:</b> (a) la capa <b>Front</b> también lleva físicas (mismos ids, <code>TILESLAYERFLAG_FRONT</code>) —
+  hay que combinarla con la game layer al convertir. (b) Los mapas DDNet reales dependen de freeze/tele/switch que no
+  existen aquí → portarán «incompletos». Prioridad de conversión: <b>vanilla dm*/ctf*/lms*</b> &gt; novice/race simples &gt; el
+  resto. (c) El tileset render (grass/jungle…) queda fuera del ASCII: nuestro render seguiría siendo plano; los PNG
+  mapres están en §7 si se quiere texturizar.</div>
+</section>
+
+<section id="assets">
+  <h2>Assets (gráficos, skins, sonidos)</h2>
+  <table>
+    <tr><th>Fuente</th><th>Contenido</th><th>Licencia</th></tr>
+    <tr><td><b>teeworlds/teeworlds</b> <code>data/</code></td><td>mapres (grass/jungle/winter/desert…), sprites del
+        tee + 6 cuerpos de skin, weapons, emoticons, particles, sonidos <code>.wv</code>.</td>
+        <td><b>CC-BY-SA 3.0</b> (salvo la fuente). Atribución + share-alike <i>sobre los assets</i>: OK para un clon
+        FOSS si se mantiene la licencia de esos archivos y se credita.</td></tr>
+    <tr><td><b>ddnet data</b></td><td>Lo anterior + mapres DDNet, fonts (DejaVu, Font Awesome, Glow Sans…).</td>
+        <td>Mezclada: zlib-ish en código, CC-BY-SA en data, OFL en fonts; <code>jxsl13/twmap/external/mapres/LICENSE</code>
+        tiene el desglose.</td></tr>
+    <tr><td><b>teedata.net</b></td><td>DB comunitaria: 2k+ assets (skins, gameskins, mapres, emoticons, particles),
+        8k+ creadores.</td><td>Por autor/asset — revisar cada uno; gran fuente de emoticons para Fase 4.</td></tr>
+  </table>
+  <div class="good">Uso inmediato: sprites del tee + mapres CC-BY-SA para dejar el render «plano»; los
+  <b>emoticons oficiales ya existen como sprites</b> — perfectos para la Fase 4 (emotes) sin dibujar nada.</div>
+</section>
+
+<section id="integracion">
+  <h2>Integración sugerida para este repo (por ROI)</h2>
+  <table>
+    <tr><th>#</th><th>Acción</th><th>Esfuerzo</th><th>Impacto</th><th>Depende de</th></tr>
+    <tr><td>1</td><td><b><code>map2ascii</code></b>: binario dev-tool (twmap, dev-dep o tool separado fuera del server)
+        que extrae game+front+entities → <code>maps/*.txt</code>. Empezar por <code>teeworlds-maps</code> (dm1-3,6-9,
+        ctf*, lms1).</td><td>S</td><td>alto — mapas reales para dm y race ya</td><td>§5, §6</td></tr>
+    <tr><td>2</td><td><b>Pathfinding tipo nheir</b>: A* sobre celdas libres (o grafo de waypoints) → distancia/dirección
+        al objetivo como features de <code>observe()</code>. Rompe el techo actual de raycasts locales.</td>
+        <td>M</td><td>alto — movilidad y navegación real de los bots</td><td>§3</td></tr>
+    <tr><td>3</td><td><b>BC sobre reportes propios</b> (gratis): replay_inputs ya verifica; entrenar Brain nuevo
+        imitando al best ckpt → warm start antes del ES. Si el usuario juega, grabar esas sesiones = datos humanos
+        del propio juego.</td><td>S-M</td><td>medio-alto</td><td>ya existe la infra</td></tr>
+    <tr><td>4</td><td><b>Rollout de proyectil para aim</b> (nheir-style): simular granada/láser ~40 ticks por K
+        direcciones candidatas como feature o como decidor híbrido con <code>Brain</code>.</td><td>M</td>
+        <td>medio — mejor puntería sin más pesos</td><td>la propia sim</td></tr>
+    <tr><td>5</td><td><b>OpenEnv adapter</b> sobre <code>crates/gym</code> (reset/step/state por WS + spec OpenEnv):
+        publicable en HF Spaces, elegible a hackathons de entornos.</td><td>S-M</td><td>medio (visibilidad + bench
+        público)</td><td>§4</td></tr>
+    <tr><td>6</td><td><b>teehistorian</b> (opcional): pedir subset a admins DDNet + <code>teehee-extractor</code> →
+        estilo de movimiento humano (prior de hook/movimiento, NO replay literal — física distinta).</td>
+        <td>M-L</td><td>medio</td><td>acceso externo</td></tr>
+    <tr><td>7</td><td><b>Fase 7 (editor/workshop)</b>: estudiar <code>ddnet-rs</code> (Apache-2.0) antes de diseñar —
+        editor egui + wasm-runtime de mods = las dos piezas difíciles ya resueltas ahí.</td><td>estudio</td>
+        <td>alto a futuro</td><td>§5</td></tr>
+    <tr><td>8</td><td><b>Emotes/audio</b> (Fases 4-5): sprites emoticons + sonidos <code>.wv</code> oficiales CC-BY-SA.</td>
+        <td>S</td><td>medio</td><td>§7</td></tr>
+  </table>
+</section>
+
+<section id="licencias">
+  <h2>Matriz de licencias (qué se puede tomar)</h2>
+  <table>
+    <tr><th>Proyecto</th><th>Licencia</th><th>¿Código? ¿Datos? ¿Ideas?</th></tr>
+    <tr><td>twmap (crate)</td><td><b>AGPL-3.0-only</b></td><td>⚠️ solo como tool offline; NO en binarios servidos.
+        Los .txt generados son datos libres.</td></tr>
+    <tr><td>teeworlds (código) / teeworlds-maps</td><td>zlib-style «as-is»</td><td>✅ código y mapas, con atribución de
+        origen.</td></tr>
+    <tr><td>teeworlds data (assets)</td><td>CC-BY-SA 3.0</td><td>✅ assets con atribución + share-alike en los assets.</td></tr>
+    <tr><td>ddnet/ddnet-rs</td><td>Apache-2.0</td><td>✅ código porteable (estudiar/tomar con NOTICE).</td></tr>
+    <tr><td>ddnet-maps</td><td>sin licencia unificada (autores por mapa)</td><td>✅ uso en server por convención;
+        atribuir <code>Info.author</code>; no redistribuir como pack propio sin revisar.</td></tr>
+    <tr><td>libtw2</td><td>OSS (por crate; verificar al adoptar)</td><td>✅ docs como referencia; crates según su
+        licencia.</td></tr>
+    <tr><td>ziadgit/teeunit · OpenEnv</td><td>MIT · BSD-3</td><td>✅ ambos.</td></tr>
+    <tr><td>timakro/tmlp</td><td>MIT</td><td>✅.</td></tr>
+    <tr><td>iMilchshake/teehee-extractor</td><td>(verificar en repo)</td><td>✅ probable; confirmar antes de vendor.</td></tr>
+    <tr><td>TeeworldsBotLib / nheir / zomb / DDNetPP / infclassR / chillerbot</td><td>licencia TW heredada o sin
+        licencia explícita</td><td>⚠️ tratar como <b>solo ideas</b> salvo licencia clara por repo.</td></tr>
+    <tr><td>KRX / Shalawa</td><td>cerrado, comercial</td><td>❌ nada de código; referencia de features y de amenaza
+        (anti-cheat).</td></tr>
+    <tr><td>teehistorian (datos)</td><td>datos de jugadores de DDNet</td><td>acceso por pedido a admins; uso ML: los
+        extractores existentes lo hacen; respetar términos que den.</td></tr>
+  </table>
+</section>
+
+<section id="fuentes">
+  <h2>Fuentes verificadas (2026-11-02)</h2>
+  <pre>Hackathons / envs
+  https://cerebralvalley.ai/e/openenv-hackathon-sf/hackathon/gallery/21   (Athens/TeeUnit, OpenEnv Hackathon SF)
+  https://github.com/ziadgit/teeunit · https://huggingface.co/ziadbc/teeunit-agent · Space ziadbc/teeunit-env
+  https://github.com/openenv/OpenEnv · https://huggingface.co/docs/openenv/index
+
+Bots / IA
+  https://github.com/nheir/teeworlds (rama server_bot0.7 — «BotCTF»)
+  https://github.com/TeeworldsBotLib/TeeworldsBotLib
+  https://github.com/teeworlds/teeworlds/issues/1966  (issue oficial «server sided bots»: nheir, zomb, ZoD2, zChaos)
+  https://www.teeworlds.com/forum/viewtopic.php?id=11397  (hilo «Yet another bot»: propuesta de competencia, duelos)
+  https://github.com/infclass/teeworlds-infclassR · discussions/110 (bots de infectados)
+  https://github.com/fasterthanlime/teeworlds-ai
+  https://github.com/chillerbot (chillerbot-ng/-ux/-h7/-cb/-ts)
+  https://krxclient.xyz · https://krxclient.gitbook.io/docs/ultimate-features/tas · shalawa-client.gitbook.io
+  https://github.com/msiglreith/teebot
+
+RL / datos
+  https://github.com/timakro/tmlp
+  https://ddnet.org/docs/libtw2/teehistorian/ · https://ddnet-wiki.gitlab.io/encodings/teehistorian/
+  https://github.com/iMilchshake/teehistorian_extractor
+  https://pati.ga/blog/twmillion.html  (acceso teehistorian: 756 GB / ~3 M runs Tutorial)
+  https://ddnet.tw/stats/ddnet-stats.zip · https://github.com/ExP98/Teeworlds-DDNet-Statistics
+
+Formatos / Rust
+  https://crates.io/crates/twmap · https://docs.rs/twmap (AGPL-3.0-only) · https://gitlab.com/Patiga/twmap
+  https://github.com/heinrich5991/libtw2 (+ doc/map.md, doc/datafile.md, spec teehistorian)
+  https://github.com/ddnet/ddnet-rs (Apache-2.0) · https://deepwiki.com/ddnet/ddnet-rs
+  https://github.com/jxsl13/twmap (Go)
+
+Mapas
+  https://github.com/teeworlds/teeworlds-maps (dm1-3, dm6-9, ctf1-8, lms1)
+  https://github.com/ddnet/ddnet-maps (types/*) · https://maps.ddnet.org/ (+ /compilations/) · https://ddnet.org/releases/
+  https://raw.githubusercontent.com/ddnet/ddnet/master/src/game/mapitems.h (TILE_*/ENTITY_* DDNet)
+  https://raw.githubusercontent.com/teeworlds/teeworlds/master/src/game/mapitems.h (TILE_*/ENTITY_* vanilla)
+
+Assets / licencias
+  https://github.com/teeworlds/teeworlds/blob/master/license.txt (código zlib-ish; data CC-BY-SA 3.0)
+  https://github.com/jxsl13/twmap/blob/main/external/mapres/LICENSE (licencias DDNet data/fonts)
+  https://teedata.net/ (+ /mapres) — DB comunitaria de assets</pre>
+</section>
+
+</main>
+<footer>Anexo generado por Devin el 2026-11-02 a pedido de Cristóbal, como complemento de ESTADO-BOTS-RL.html.
+Toda entrada proviene de una fuente pública listada en §9; los «Aprovechable» son propuestas, no hechos consumados.</footer>
+</body>
+</html>

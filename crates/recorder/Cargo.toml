@@ -1,0 +1,12 @@
+[package]
+name = "recorder"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "twr-record"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+libc = "0.2"

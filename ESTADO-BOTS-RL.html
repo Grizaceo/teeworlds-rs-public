@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>teeworlds-rs · Estado de criaturas bot + gym RL</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3342;
+    --text:#d7dde6; --muted:#8b96a8; --accent:#f0a540; --ok:#3fb950;
+    --part:#d29922; --todo:#f85149; --info:#58a6ff;
+    --caz:#e6503c; --eva:#50c8e6; --tan:#8c6e5a; --car:#aac83c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:28px 32px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#161b22,#0e1116)}
+  h1{margin:0 0 6px;font-size:26px}
+  h1 span{color:var(--accent)}
+  h2{font-size:20px;margin:0 0 14px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px}
+  nav{position:sticky;top:0;z-index:5;background:#0e1116ee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 32px;display:flex;gap:16px;flex-wrap:wrap}
+  nav a{color:var(--muted);text-decoration:none;font-size:13px}
+  nav a:hover{color:var(--text)}
+  main{max-width:1180px;margin:0 auto;padding:24px 32px 60px}
+  section{margin:34px 0}
+  code,pre{font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:13px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;margin:8px 0}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi b{display:block;font-size:22px;color:var(--text)}
+  .kpi small{color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:860px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:var(--panel2)}
+  tr:hover td{background:#ffffff05}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .ok{background:#3fb95022;color:var(--ok);border:1px solid #3fb95055}
+  .part{background:#d2992222;color:var(--part);border:1px solid #d2992255}
+  .todo{background:#f8514922;color:var(--todo);border:1px solid #f8514955}
+  .new{background:#58a6ff22;color:var(--info);border:1px solid #58a6ff55}
+  .mod{background:#d2992222;color:var(--part);border:1px solid #d2992255}
+  .same{background:#8b96a822;color:var(--muted);border:1px solid #8b96a855}
+  .tree{font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.75}
+  .tree .d{color:var(--accent);font-weight:600}
+  .tree .c{color:var(--muted)}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+  .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+  .arrow{color:var(--muted)}
+  .sp{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .warn{border-left:3px solid var(--part);background:#d2992210;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  .bad{border-left:3px solid var(--todo);background:#f8514910;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  .good{border-left:3px solid var(--ok);background:#3fb95010;padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  img.shot{max-width:100%;border:1px solid var(--line);border-radius:8px}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .pri{font-weight:700;width:46px}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>teeworlds-rs · <span>criaturas bot + gym de RL</span></h1>
+  <div class="sub">
+    Estado al 2-nov-2026 ~00:50 (-03) · worktree <code>ACTIVE/teeworlds-rs-bots</code> · rama <code>feat/bots-rl</code>
+    (22 commits sobre <code>e9af041</code>, sin push, sin merge a <code>main</code>) · server de prueba vivo en
+    <code>http://localhost:8304/#cris</code>
+  </div>
+</header>
+<nav>
+  <a href="#resumen">Resumen</a><a href="#repo">Repo y carpetas</a><a href="#flujo">Cómo funciona</a><a href="#red">La red</a><a href="#ven">Qué ven</a>
+  <a href="#impl">Implementado vs. pedido</a><a href="#probe">Comportamiento actual</a>
+  <a href="#bitacora">Hacks corregidos</a><a href="#pend">Pendientes</a><a href="#plan">Plan nuevas features</a><a href="#cmd">Comandos</a><a href="#shot">Captura</a>
+  <a href="ANEXO-ECOSISTEMA-TW.html" style="color:var(--accent)">Anexo ecosistema externo ↗</a>
+</nav>
+<main>
+
+<section id="resumen">
+  <h2>Resumen</h2>
+  <p>
+    <b>teeworlds-rs</b> es un clon propio de Teeworlds en Rust. Se juega en el navegador (WASM) contra un server autoritativo
+    con protocolo propio sobre WebSocket. En esta rama se agregaron <b>10 bots</b> de 4 especies, cada uno con una red neuronal chica.
+    También hay un <b>gym multiagente en Rust</b> para entrenarlos y reentrenarlos en minutos, y telemetría en vivo
+    (panel F3, reportes reproducibles F8 y consola de operador) para detectar <i>reward hacking</i> y corregirlo.
+  </p>
+  <p class="sub">Anexo disponible: <a href="ANEXO-ECOSISTEMA-TW.html">ecosistema Teeworlds externo — material reutilizable verificado</a>
+    (competencias, bots, RL/datos, libs Rust, mapas, assets y matriz de licencias; 2026-11-02).</p>
+  <div class="kpis">
+    <div class="kpi"><b>10 bots</b><small>4 especies, round-robin, nombre <code>especie-k</code></small></div>
+    <div class="kpi"><b>~4,2 mil</b><small>pesos por red (MLP 79→32→32→17)</small></div>
+    <div class="kpi"><b>49,8 µs</b><small>inferencia de 10 bots por tick (bench; p99 76,7 µs)</small></div>
+    <div class="kpi"><b>80–160 µs</b><small>costo medio en el server en vivo (picos sin investigar)</small></div>
+    <div class="kpi"><b>12,8 k ticks/s</b><small>gym en 1 hilo con 11 agentes (~256× tiempo real)</small></div>
+    <div class="kpi"><b>37 ep/s</b><small>episodios de 60 s en 12 hilos (1,2 M agent-steps/s)</small></div>
+    <div class="kpi"><b>~8 min</b><small>entrenamiento completo, 300 generaciones × 4 especies</small></div>
+    <div class="kpi"><b>26 + 11</b><small>suites de test en verde (shared + gym, incl. replay y self_dmg)</small></div>
+  </div>
+</section>
+
+<section id="repo">
+  <h2>El repo y sus carpetas</h2>
+  <p class="sub">
+    Workspace de Cargo con 4 crates. <span class="tag new">nuevo</span> = creado en esta rama ·
+    <span class="tag mod">modificado</span> = tocado en esta rama · <span class="tag same">sin cambios</span>.
+    El diff de la rama contra el snapshot inicial: 47 archivos, +6.965 / −631 líneas.
+  </p>
+  <div class="grid2">
+  <div class="card tree">
+<span class="d">teeworlds-rs-bots/</span><br>
+├─ <span class="d">crates/</span><br>
+│ ├─ <span class="d">shared/</span> <span class="c">— simulación determinista (server + wasm)</span><br>
+│ │ ├─ world.rs <span class="tag mod">mod</span><br>
+│ │ ├─ creature.rs <span class="tag new">nuevo</span><br>
+│ │ ├─ physics.rs <span class="tag mod">derives</span><br>
+│ │ ├─ tile.rs · proto.rs · lib.rs <span class="tag mod">mod</span><br>
+│ │ └─ combat.rs · input.rs · math.rs <span class="tag same">igual</span><br>
+│ ├─ <span class="d">client/</span> <span class="c">— macroquad → WASM</span><br>
+│ │ ├─ main.rs <span class="tag mod">mod</span> · net.rs <span class="tag same">igual</span><br>
+│ │ └─ debug_panel.rs <span class="tag new">nuevo</span><br>
+│ ├─ <span class="d">server/</span> <span class="c">— axum :8303 (o PORT)</span><br>
+│ │ ├─ main.rs <span class="tag mod">mod</span> · botctl.rs <span class="tag new">nuevo</span><br>
+│ │ └─ bin/ wscheck · modecheck · wsdump <span class="tag same">igual</span><br>
+│ └─ <span class="d">gym/</span> <span class="tag new">nuevo</span> <span class="c">— entorno RL + entrenamiento</span><br>
+│ &nbsp;&nbsp;├─ env · reward · config · metrics · scripted · report<br>
+│ &nbsp;&nbsp;├─ bin/ train · probe · replay · bench<br>
+│ &nbsp;&nbsp;└─ tests/ gym_tests · report_replay · self_dmg<br>
+├─ <span class="d">bots/</span> <span class="c">— checkpoints entrenados por especie</span><br>
+├─ <span class="d">maps/</span> <span class="c">— mapas ASCII (arena11 nuevo)</span><br>
+├─ <span class="d">tools/</span> <span class="c">— verificación headless (playwright)</span><br>
+├─ <span class="d">reports/</span> <span class="c">— reportes F8 (gitignored)</span><br>
+├─ index.html · mq_js_bundle.js · teeworlds_rs.wasm<br>
+├─ Dockerfile · fly.toml · .cargo/config.toml<br>
+└─ AGENTS.md · ESTADO-BOTS-RL.html
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>Carpeta / archivo</th><th>Para qué sirve</th></tr>
+      <tr><td><code>crates/shared</code></td><td>El "motor" común: física estilo TW (movimiento, doble salto, hook), tilemap, armas y daño, estado del mundo (<code>World</code>), protocolo de red y ahora <b>las criaturas</b> (<code>creature.rs</code>: observación, red, especies, retardo de reacción, director de objetivos). Sin dependencias de plataforma: compila al server nativo y al wasm del cliente.</td></tr>
+      <tr><td><code>crates/client</code></td><td>Juego en el navegador (macroquad → wasm). Predicción del tee local, interpolación de los remotos y render. Nuevo: tinte por especie, parpadeo de protegidos, panel F3 y toast F8.</td></tr>
+      <tr><td><code>crates/server</code></td><td>Un solo binario: sirve la página, el wasm y el WebSocket <code>/ws</code>, y corre el tick autoritativo a 50 Hz. Nuevo: <code>botctl.rs</code> maneja los 10 bots (cerebro, métricas, recompensa, alarmas, grabación para F8) y los comandos de operador (<code>/admin</code> y stdin).</td></tr>
+      <tr><td><code>crates/gym</code></td><td>Gym de RL tipo PettingZoo: <code>Env::reset/step</code> sin cabeza, determinista por semilla, paralelo por hilos. Recompensa por términos con tope (<code>config.rs</code>), métricas y alarmas de reward hacking, bot scripteado ("humano simulado"), trainer OpenAI-ES, probe, bench y replay de reportes. <b>No</b> es dependencia de <code>shared</code> ni del cliente, así que no toca el wasm.</td></tr>
+      <tr><td><code>bots/</code></td><td><code>&lt;especie&gt;/latest.bin</code> (lo que carga el server) + <code>gen_0299.bin</code> + <code>train_log.csv</code> (una fila por generación y especie, con términos y métricas). Checkpoints versionados con <code>obs_version=3</code> (79→32→32→17, coords relativas).</td></tr>
+      <tr><td><code>maps/</code></td><td><code>arena11.txt</code> (72×34, 13 spawns, para 11 jugadores, default en dm/eat), <code>puzzle1.txt</code> (race co-op), <code>probe_tiny.txt</code>. Formato ASCII; <code>S</code> = spawn extra.</td></tr>
+      <tr><td><code>tools/</code></td><td><code>headless_check.mjs</code> (2 tabs, join×2) y <code>headless_bots.mjs</code> (F3 + F8 + capturas). URL por <code>TWRS_URL</code>.</td></tr>
+      <tr><td><code>reports/</code></td><td>Cada F8 o <code>report</code> crea <code>&lt;unix&gt;-t&lt;tick&gt;/</code> con <code>report.bin</code> (mundo + mentes + inputs de ~20 s), <code>summary.txt</code> y copia de los checkpoints. Hoy hay 4, todos generados por los scripts headless.</td></tr>
+      <tr><td>raíz</td><td><code>teeworlds_rs.wasm</code> es el cliente compilado que el server embebe (build: wasm → copiar → server). <code>mq_js_bundle.js</code> lleva 2 parches documentados. <code>Dockerfile</code>/<code>fly.toml</code> para Fly.io (no desplegado). <code>AGENTS.md</code> es la documentación viva para agentes, con la bitácora del ciclo.</td></tr>
+    </table>
+  </div>
+  </div>
+</section>
+
+<section id="flujo">
+  <h2>Cómo funciona</h2>
+  <h3>Un tick con bots (server, 50 Hz)</h3>
+  <div class="flow">
+    <div class="box">Director<br><small>asigna objetivos · máx. 3 sobre un humano</small></div><span class="arrow">→</span>
+    <div class="box">Mind.observe<br><small>79 floats relativos, solo con línea de vista</small></div><span class="arrow">→</span>
+    <div class="box">Retardo 4 ticks<br><small>(easy 6 · hard 2)</small></div><span class="arrow">→</span>
+    <div class="box">Brain.forward<br><small>MLP tanh</small></div><span class="arrow">→</span>
+    <div class="box">Input + ruido de aim</div><span class="arrow">→</span>
+    <div class="box">World.tick<br><small>+ eventos</small></div><span class="arrow">→</span>
+    <div class="box">Recompensa + métricas<br><small>alarmas · panel · grabación F8</small></div>
+  </div>
+  <h3>Entrenamiento (gym)</h3>
+  <div class="flow">
+    <div class="box">θ por especie</div><span class="arrow">→</span>
+    <div class="box">24 pares θ±σε<br><small>antithetic, mismo episodio</small></div><span class="arrow">→</span>
+    <div class="box">Episodios 60 s, 11 agentes<br><small>A dummy → B scripted → C liga + pool</small></div><span class="arrow">→</span>
+    <div class="box">Ranks centrados → Adam</div><span class="arrow">→</span>
+    <div class="box">eval cada 10 gens<br><small>latest.bin + CSV</small></div>
+  </div>
+  <h3>Ciclo en vivo (detectar → reproducir → parchar)</h3>
+  <div class="flow">
+    <div class="box">Cristóbal juega<br><small>F3 para ver al bot</small></div><span class="arrow">→</span>
+    <div class="box">F8 → reports/</div><span class="arrow">→</span>
+    <div class="box">replay en el gym<br><small>hash + inputs idénticos</small></div><span class="arrow">→</span>
+    <div class="box">test de regresión</div><span class="arrow">→</span>
+    <div class="box">parche<br><small>recompensa / obs / física</small></div><span class="arrow">→</span>
+    <div class="box">train → <code>reload</code><br><small>sin reiniciar el server</small></div>
+  </div>
+  <h3>Especies (definidas por datos, no por código)</h3>
+  <table>
+    <tr><th>Especie</th><th>Tamaño</th><th>Sesgo (pesos de recompensa)</th></tr>
+    <tr><td><span class="sp" style="background:var(--caz)"></span>cazadora</td><td>1,0</td><td>kills a distancia; daño con gun ×1,2 y laser ×1,3</td></tr>
+    <tr><td><span class="sp" style="background:var(--eva)"></span>evasiva</td><td>0,9</td><td>sobrevivir y moverse: muerte −10, supervivencia 0,15/s, menos premio por kill</td></tr>
+    <tr><td><span class="sp" style="background:var(--tan)"></span>tanque</td><td>1,25</td><td>cuerpo a cuerpo: hammer ×2, shotgun ×1,6, más cercanía</td></tr>
+    <tr><td><span class="sp" style="background:var(--car)"></span>carronera</td><td>1,0</td><td>rematar: +8 por kill a víctima con ≤3 hp o con daño previo de otro</td></tr>
+  </table>
+  <p class="sub">12 términos de recompensa, todos con tope: kill, dmg, finish, death, fall, self_dmg, survival, disp (desplazamiento neto),
+  engage, hook (solo hook a tiles), still, wall. Las kills a víctimas recién spawneadas y la 3ª kill seguida a la misma víctima valen 0.</p>
+</section>
+
+<section id="red">
+  <h2>La red de cada bot (capas)</h2>
+  <p class="sub">MLP totalmente conectado, igual para las 4 especies (solo cambian los pesos). Activación <code>tanh</code> en todas las capas.
+  Pesos + sesgos: 66·32+32 = 2.144 · 32·32+32 = 1.056 · 32·14+14 = 462 → <b>3.662 parámetros</b> (14 KB en el checkpoint).</p>
+  <div class="card" style="overflow-x:auto">
+  <svg viewBox="0 0 1100 470" width="100%" style="min-width:860px;font-family:system-ui,sans-serif">
+    <defs>
+      <linearGradient id="gl" x1="0" x2="1"><stop offset="0" stop-color="#58a6ff" stop-opacity=".18"/><stop offset="1" stop-color="#f0a540" stop-opacity=".18"/></linearGradient>
+    </defs>
+    <!-- conexiones (abanico) -->
+    <g stroke="url(#gl)" stroke-width="1">
+      <!-- input blocks -> h1 -->
+      <path d="M250 60 L430 50 M250 60 L430 420 M250 140 L430 50 M250 140 L430 420 M250 215 L430 50 M250 215 L430 420 M250 270 L430 50 M250 270 L430 420 M250 335 L430 50 M250 335 L430 420 M250 405 L430 50 M250 405 L430 420"/>
+      <!-- h1 -> h2 -->
+      <path d="M450 50 L630 50 M450 50 L630 420 M450 420 L630 50 M450 420 L630 420 M450 235 L630 50 M450 235 L630 420 M450 140 L630 330 M450 330 L630 140"/>
+      <!-- h2 -> out -->
+      <path d="M650 50 L830 70 M650 50 L830 400 M650 420 L830 70 M650 420 L830 400 M650 235 L830 160 M650 235 L830 300"/>
+    </g>
+    <!-- bloques de entrada -->
+    <g font-size="12.5" fill="#d7dde6">
+      <text x="135" y="22" text-anchor="middle" fill="#8b96a8" font-weight="600">ENTRADA · 66</text>
+      <rect x="20" y="35" width="230" height="50" rx="7" fill="#1c2330" stroke="#58a6ff"/><text x="32" y="56">Propio · 20</text><text x="32" y="74" fill="#8b96a8" font-size="11">pos, vel, suelo, saltos, hook, hp, armor, arma</text>
+      <rect x="20" y="95" width="230" height="90" rx="7" fill="#1c2330" stroke="#e6503c"/><text x="32" y="116">3 enemigos visibles · 21</text><text x="32" y="134" fill="#8b96a8" font-size="11">7 c/u: presente, dx, dy, dist,</text><text x="32" y="150" fill="#8b96a8" font-size="11">vx, vy, hp · slot 0 = su objetivo</text><text x="32" y="168" fill="#8b96a8" font-size="11">(solo con línea de vista o &lt;64u)</text>
+      <rect x="20" y="195" width="230" height="40" rx="7" fill="#1c2330" stroke="#d29922"/><text x="32" y="214">Memoria del objetivo · 4</text><text x="32" y="229" fill="#8b96a8" font-size="11">último lugar visto + hace cuánto</text>
+      <rect x="20" y="245" width="230" height="50" rx="7" fill="#1c2330" stroke="#aac83c"/><text x="32" y="266">2 proyectiles entrantes · 10</text><text x="32" y="284" fill="#8b96a8" font-size="11">&lt;400u y acercándose: dx, dy, vx, vy</text>
+      <rect x="20" y="305" width="230" height="60" rx="7" fill="#1c2330" stroke="#8b96a8"/><text x="32" y="326">8 raycasts de sólido · 8</text><text x="32" y="344" fill="#8b96a8" font-size="11">8 direcciones, alcance 320u</text><text x="32" y="358" fill="#8b96a8" font-size="11">(10 tiles)</text>
+      <rect x="20" y="375" width="230" height="60" rx="7" fill="#1c2330" stroke="#f85149"/><text x="32" y="396">3 raycasts de muerte · 3</text><text x="32" y="414" fill="#8b96a8" font-size="11">abajo, abajo-izq, abajo-der</text><text x="32" y="428" fill="#8b96a8" font-size="11">(tiles X)</text>
+    </g>
+    <!-- capas ocultas -->
+    <g>
+      <text x="440" y="22" text-anchor="middle" fill="#8b96a8" font-size="12.5" font-weight="600">OCULTA 1 · 32</text>
+      <text x="640" y="22" text-anchor="middle" fill="#8b96a8" font-size="12.5" font-weight="600">OCULTA 2 · 32</text>
+      <g fill="#161b22" stroke="#f0a540" stroke-width="2">
+        <circle cx="440" cy="50" r="10"/><circle cx="440" cy="95" r="10"/><circle cx="440" cy="140" r="10"/><circle cx="440" cy="185" r="10"/>
+        <circle cx="440" cy="285" r="10"/><circle cx="440" cy="330" r="10"/><circle cx="440" cy="375" r="10"/><circle cx="440" cy="420" r="10"/>
+        <circle cx="640" cy="50" r="10"/><circle cx="640" cy="95" r="10"/><circle cx="640" cy="140" r="10"/><circle cx="640" cy="185" r="10"/>
+        <circle cx="640" cy="285" r="10"/><circle cx="640" cy="330" r="10"/><circle cx="640" cy="375" r="10"/><circle cx="640" cy="420" r="10"/>
+      </g>
+      <text x="440" y="241" text-anchor="middle" fill="#8b96a8" font-size="20">⋮</text>
+      <text x="640" y="241" text-anchor="middle" fill="#8b96a8" font-size="20">⋮</text>
+      <text x="440" y="455" text-anchor="middle" fill="#8b96a8" font-size="11">tanh · 2.144 parámetros</text>
+      <text x="640" y="455" text-anchor="middle" fill="#8b96a8" font-size="11">tanh · 1.056 parámetros</text>
+    </g>
+    <!-- salidas -->
+    <g font-size="12.5" fill="#d7dde6">
+      <text x="955" y="22" text-anchor="middle" fill="#8b96a8" font-weight="600">SALIDA · 14 (tanh) → Input</text>
+      <rect x="830" y="40" width="250" height="60" rx="7" fill="#1c2330" stroke="#58a6ff"/><text x="842" y="61">Dirección · 3</text><text x="842" y="79" fill="#8b96a8" font-size="11">argmax → izquierda / quieto / derecha</text>
+      <rect x="830" y="110" width="250" height="80" rx="7" fill="#1c2330" stroke="#3fb950"/><text x="842" y="131">Saltar · Hook · Disparar · 3</text><text x="842" y="149" fill="#8b96a8" font-size="11">cada uno: activo si &gt; 0</text><text x="842" y="166" fill="#8b96a8" font-size="11">(el salto solo dispara en el flanco,</text><text x="842" y="181" fill="#8b96a8" font-size="11">igual que un jugador)</text>
+      <rect x="830" y="200" width="250" height="70" rx="7" fill="#1c2330" stroke="#d29922"/><text x="842" y="221">Puntería · 2</text><text x="842" y="239" fill="#8b96a8" font-size="11">vector (x,y) + ruido gaussiano</text><text x="842" y="255" fill="#8b96a8" font-size="11">según dificultad (0,05–0,22 rad)</text>
+      <rect x="830" y="280" width="250" height="70" rx="7" fill="#1c2330" stroke="#e6503c"/><text x="842" y="301">Arma · 6</text><text x="842" y="319" fill="#8b96a8" font-size="11">argmax → hammer, gun, shotgun,</text><text x="842" y="335" fill="#8b96a8" font-size="11">grenade, laser, o «mantener»</text>
+      <rect x="830" y="370" width="250" height="65" rx="7" fill="#161b22" stroke="#2a3342" stroke-dasharray="4 3"/><text x="842" y="391" fill="#8b96a8">Antes de la red:</text><text x="842" y="409" fill="#8b96a8" font-size="11">la observación llega con 4 ticks (80 ms)</text><text x="842" y="425" fill="#8b96a8" font-size="11">de retardo · 462 parámetros en esta capa</text>
+    </g>
+  </svg>
+  </div>
+</section>
+
+<section id="ven">
+  <h2>Cómo ven el mundo los bots hoy</h2>
+  <p class="sub">No ven la pantalla: reciben 66 números por tick (los de la figura de arriba), con 80 ms de atraso.
+  El esquema muestra qué entra a la red y qué queda fuera.</p>
+  <div class="grid2">
+  <div class="card">
+  <svg viewBox="0 0 520 400" width="100%" style="font-family:system-ui,sans-serif">
+    <!-- alcance de proyectiles -->
+    <circle cx="260" cy="210" r="160" fill="none" stroke="#aac83c" stroke-opacity=".35" stroke-dasharray="5 5"/>
+    <text x="262" y="44" fill="#aac83c" font-size="11" opacity=".8">radio de proyectiles 400u</text>
+    <!-- muros -->
+    <rect x="0" y="330" width="520" height="70" fill="#2b3444"/>
+    <rect x="330" y="120" width="26" height="150" fill="#2b3444"/>
+    <rect x="70" y="150" width="120" height="20" fill="#2b3444"/>
+    <rect x="200" y="330" width="80" height="22" fill="#5a2a2a"/>
+    <text x="214" y="346" fill="#f85149" font-size="11">X X X</text>
+    <!-- 8 rayos de sólido -->
+    <g stroke="#8b96a8" stroke-width="1.5" stroke-dasharray="3 3">
+      <line x1="260" y1="300" x2="330" y2="300"/><line x1="260" y1="300" x2="290" y2="330"/>
+      <line x1="260" y1="300" x2="260" y2="330"/><line x1="260" y1="300" x2="230" y2="330"/>
+      <line x1="260" y1="300" x2="130" y2="300"/><line x1="260" y1="300" x2="190" y2="230"/>
+      <line x1="260" y1="300" x2="260" y2="170"/><line x1="260" y1="300" x2="330" y2="230"/>
+    </g>
+    <!-- 3 rayos de muerte -->
+    <g stroke="#f85149" stroke-width="2"><line x1="260" y1="300" x2="260" y2="333"/><line x1="260" y1="300" x2="227" y2="333"/><line x1="260" y1="300" x2="290" y2="330"/></g>
+    <!-- enemigo visible -->
+    <line x1="260" y1="300" x2="120" y2="250" stroke="#3fb950" stroke-width="2"/>
+    <circle cx="120" cy="250" r="13" fill="#e6503c"/><text x="76" y="232" fill="#3fb950" font-size="12">visible (LOS)</text>
+    <!-- enemigo tras muro -->
+    <line x1="260" y1="300" x2="420" y2="200" stroke="#f85149" stroke-width="1.5" stroke-dasharray="2 4"/>
+    <circle cx="420" cy="200" r="13" fill="#50c8e6" opacity=".55"/><text x="382" y="180" fill="#f85149" font-size="12">tras muro: invisible</text>
+    <!-- memoria -->
+    <circle cx="430" cy="290" r="13" fill="none" stroke="#d29922" stroke-dasharray="3 3"/><text x="380" y="320" fill="#d29922" font-size="12">«lo vi aquí hace 1 s»</text>
+    <!-- proyectil -->
+    <line x1="165" y1="350" x2="215" y2="318" stroke="#aac83c" stroke-width="2"/><circle cx="215" cy="318" r="4" fill="#aac83c"/>
+    <text x="96" y="372" fill="#aac83c" font-size="12">bala entrante</text>
+    <!-- bot -->
+    <circle cx="260" cy="300" r="14" fill="#8c6e5a" stroke="#f0a540" stroke-width="2"/>
+    <text x="278" y="294" fill="#f0a540" font-size="12" font-weight="600">bot</text>
+    <text x="10" y="20" fill="#8b96a8" font-size="11">gris: 8 rayos de sólido (10 tiles) · rojo: 3 rayos de muerte</text>
+  </svg>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Lo que sí ven</h3>
+    <ul>
+      <li>Su propio estado: posición, velocidad, si pisa suelo, saltos usados, hook, vida, armadura, arma y cooldown.</li>
+      <li>Hasta <b>3 enemigos</b>, solo si hay línea de vista (o están a menos de 64u). El primero es su objetivo asignado por el director.</li>
+      <li>La <b>memoria</b> del objetivo: dónde lo vieron por última vez y hace cuánto. Así lo persiguen tras una esquina.</li>
+      <li>Las <b>2 balas enemigas</b> más cercanas que vienen hacia ellos.</li>
+      <li>Paredes a ≤10 tiles en 8 direcciones y pozos <code>X</code> debajo.</li>
+    </ul>
+    <h3>Lo que NO ven</h3>
+    <ul>
+      <li>Enemigos detrás de paredes ni a quién apuntan, qué arma llevan o si tienen el hook puesto.</li>
+      <li>La especie o el tamaño del enemigo, ni si es humano (decisión de diseño).</li>
+      <li>El mapa más allá de los rayos de 10 tiles; tampoco el marcador ni el tiempo.</li>
+      <li>Las balas propias, y las enemigas que se alejan o están a más de 400u.</li>
+    </ul>
+    <div class="good" style="margin-bottom:0">Resuelto con <code>OBS_VERSION 3</code> (commit 8cf9aed): la observación usa <b>coordenadas relativas</b> al propio bot —
+    funciona en cualquier mapa del workshop sin memorizar arena11.</div>
+  </div>
+  </div>
+</section>
+
+<section id="impl">
+  <h2>Implementado vs. lo pedido en el prompt</h2>
+  <table>
+    <tr><th>Requisito</th><th>Estado</th><th>Detalle / evidencia</th></tr>
+    <tr><td>10 bots al iniciar, jugables en el navegador</td><td><span class="tag ok">hecho y probado</span></td><td><code>BOTS</code> por defecto 10 en dm/eat; server vivo en :8304; headless con 10 bots sin errores.</td></tr>
+    <tr><td>Inferencia en Rust dentro del tick, &lt; 1 ms</td><td><span class="tag part">parcial</span></td><td>Media 49,8 µs (bench) y 80–160 µs en vivo. En las ventanas de 10 s se vieron picos máximos de 0,2 a 8,9 ms, sin causa identificada.</td></tr>
+    <tr><td>Observación v3 versionada</td><td><span class="tag ok">hecho</span></td><td>79 floats relativos al bot (independientes del mapa): propio con dash/parry/glider + Estómago + cooldowns, 3 enemigos visibles con estados, memoria del objetivo, 2 proyectiles, raycasts; <code>obs_version=3</code>; ckpts v1/v2 rechazados.</td></tr>
+    <tr><td>Marca de «humano»</td><td><span class="tag ok">decidido: no</span></td><td>Aprobado por Cristóbal: sin flag; en su lugar el director limita el foco.</td></tr>
+    <tr><td>Red ≤ 5 mil parámetros; GRU opcional</td><td><span class="tag ok">hecho</span></td><td>4.177 (79→32→32→17). Sin GRU: la memoria del último avistamiento va en la observación.</td></tr>
+    <tr><td>Especies con personalidad</td><td><span class="tag ok">hecho</span></td><td>4 especies con pesos de recompensa, tamaño y color propios. Solo el tamaño es físico: velocidad y salto no varían.</td></tr>
+    <tr><td>Gym multiagente (reset/step, headless, determinista, paralelo, configurable)</td><td><span class="tag ok">hecho y probado</span></td><td>Tests de semilla, reset limpio, recompensas acotadas y 11 agentes sin apilarse.</td></tr>
+    <tr><td>Currículo + liga de self-play con pool</td><td><span class="tag ok">hecho</span></td><td>Fases A dummy (10 %) → B scripted (20 %) → C liga (pool de 16 checkpoints pasados).</td></tr>
+    <tr><td>Recompensa descompuesta, con tope y registrada</td><td><span class="tag ok">hecho</span></td><td>18 términos en <code>config.rs</code> (12 base + eat/escape/big_surv de Estómago + emote/emo_cele/emo_spam de la banda de emotes); por generación en <code>train_log.csv</code>; en el panel, por ventana de 60 s.</td></tr>
+    <tr><td>Equidad (LOS, reacción, ruido, dificultad, no 10 contra 1)</td><td><span class="tag ok">hecho</span></td><td>Retardo 6/4/2 ticks, ruido de aim 0,22/0,12/0,05 rad y <code>HUMAN_CAP=3</code>. El tope es blando: un bot sin el humano como objetivo igual puede verlo y dispararle.</td></tr>
+    <tr><td>Spawns para 11 sin apilarse</td><td><span class="tag ok">hecho y probado</span></td><td>arena11 con 13 spawns + spawn más lejano + celdas seguras + 1 s de protección.</td></tr>
+    <tr><td>Métricas y alarmas automáticas</td><td><span class="tag ok">hecho</span></td><td>19 alarmas: hook-camping, circling, idle, falls, lurking, spawn-camping, wall-shots, kill-trading, repetitive, human-focus, physics-exploit, big-camper + v3: parry-spam, stun-lock, glide-forever, dash-loop, emote-spam, emote-mute, emote-monotone.</td></tr>
+    <tr><td>Panel de debug (tecla)</td><td><span class="tag ok">hecho</span></td><td>F3: bot más cercano, checkpoint, métricas, recompensa de los últimos 60 s, alarmas y línea a su objetivo (captura abajo).</td></tr>
+    <tr><td>Tecla reportar → reproducible en el gym</td><td><span class="tag ok">hecho y probado</span></td><td>F8 → <code>reports/</code>; <code>replay</code> da OK en los modos inputs y brains; test <code>report_replay</code>.</td></tr>
+    <tr><td>Test de regresión a partir de un reporte</td><td><span class="tag part">parcial</span></td><td>El test de la granada se escribió a mano, no a partir de un F8. Falta un flujo que convierta un reporte en test automáticamente.</td></tr>
+    <tr><td>Controles del operador en vivo</td><td><span class="tag ok">hecho</span></td><td>stdin + <code>/admin</code> (solo loopback): status, bots, ckpt, reload, freeze, difficulty, human_cap, report.</td></tr>
+    <tr><td>Benchmark</td><td><span class="tag ok">hecho</span></td><td><code>gym --bin bench</code> (cifras en el resumen).</td></tr>
+    <tr><td>Verificación (tests, build, __wbg_, headless)</td><td><span class="tag ok">hecho</span></td><td>Tests en verde, <code>__wbg_</code>=0 y headless OK. <code>headless_check</code> (2 tabs) se corrió en H3; después de los cambios de H4–H5 solo se volvió a correr <code>headless_bots</code>.</td></tr>
+    <tr><td>Sesión en vivo con Cristóbal</td><td><span class="tag todo">pendiente</span></td><td>Server listo; todavía no hay reportes de una persona jugando.</td></tr>
+    <tr><td><b>Fase 1 · Controles rebindeables + planeador</b> (2-nov)</td><td><span class="tag ok">hecho y probado</span></td><td>Menú Esc con 16 acciones → tecla/botón, en localStorage vía plugin <code>twrs_store</code> (sin wasm-bindgen). Defaults: hook=RMB, dash=Shift, parry=Q, emotes=E. Planeador: jump mantenido cayendo sin saltos (o «siempre», D2), gravedad −70 %, tope 3,5 u/tick, fricción 0,99; dosel verde sobre el tee. 4 tests + headless OK (join×2, F3, F8, replay inputs/brains).</td></tr>
+    <tr><td><b>Fases 2+3 · Mecánicas P1</b> (2-nov)</td><td><span class="tag ok">hecho y probado</span></td><td>Stun real (cae sin controles + 1,5 s inmunidad), dash→slide (armado en el aire → ×1,4 al aterrizar, choque aturde 0,7 s, cd 1,5 s), wall-slide Megaman (caída a 4, dash baja a 12, wall-jump cargado +50 %), uppercut de martillo cargado (lanza, inmunidad 60 t), parry Q (ventana 140 ms: refleja ×2 tope ×16 +10 % vel con lag comp ~120 ms; melee aturde al atacante; fallo = cd 1 s + vulnerable ×1,5), hook-release boost +3, velocidad=daño en martillo (tope ×2). <code>Projectile.parries</code> + eventos Stunned/Parried/Uppercut; snap + predicción con estados sembrados. 11 tests nuevos (42 shared verde), headless OK.</td></tr>
+    <tr><td><b>Fase 7 · Mapa v2 + elementos + mapas default</b> (3-nov)</td><td><span class="tag ok">hecho y probado</span></td><td><code>Map.elements+meta</code>, postcard <code>.twmap</code>/JSON, ASCII ampliado, corrientes/anclas/trampolines/aceleradores/pickups/checkpoints en sim, validación por estilo, D3 paso 1 (hammer+gun de nacimiento, resto por pickups), arena11 con 11 elementos, duel1/parkour1/race_ckpt nuevos, RaceStart/checkpoint como respawn. Commits 1f34702, cf2e1a7. 52 tests verdes.</td></tr>
+    <tr><td><b>Fase 7b · Editor + workshop</b> (3-nov)</td><td><span class="tag ok">hecho y probado</span></td><td>Editor <code>/#editor</code> (pincel/elementos/undo/zoom/validar/probar, localStorage). Workshop API v1 (subir/listar/descargar/votar/reportar/jugar, device-token, dir <code>workshop/</code>) + plugin JS <code>twrs_http</code> y cliente wasm: U sube, B lista, dígito descarga. <code>maptool</code> CLI. Verificado e2e en navegador. Commits b7c5cf2, 37551b7, c7cdafb.</td></tr>
+    <tr><td><b>Fases 4+4b · Emotes</b> (3-nov)</td><td><span class="tag ok">hecho</span></td><td>Rueda radial en E (10 caras interior / 12 íconos exterior, mouse+soltar), <code>ClientMsg::Emote</code> → cooldown 2,5 s en <code>World::try_emote</code> → <code>PlayerSnap.emote/face</code>. Caras por código + cara base por id + auto-expresiones (daño/kill/parry/stun). Silenciar en menú. Emotes de bots ya salen por la red (OBS v3). <b>Emote directo bindeado:</b> acción <code>EmoteFav</code> (G por defecto, rebindeable) envía el favorito elegido en el menú (fila «emote rápido», cicla los 22) — persiste en <code>twrs_binds_v1</code> como <code>ef=</code>. Commit 6dcb9b2. 55 tests verdes.</td></tr>
+    <tr><td><b>Fase 8 · Estómago + chat texto/voz + timeout</b> (2-3 nov)</td><td><span class="tag ok">hecho y probado</span></td><td><code>GameMode::Stomach=3</code>: comer (eaten_by, mini-tee en la panza), eyección al morir el captor, ganador único o mejor libre al timeout de 3 min. Chat texto por zonas (T, kind 0/1/2, «pío pío») y voz WebRTC mesh (plugin <code>twrs_voice</code>, pares del server, PTT V, pío sintetizado — la voz real no sale del estómago). Commits 69e793c, a03a1a6, 39b1e44. 58+ tests verdes; e2e modecheck + navegador.</td></tr>
+    <tr><td><b>Impacto bots/RL · OBS v3 + salidas P1 + rewards Estómago</b> (3-nov)</td><td><span class="tag ok">hecho</span></td><td><code>OBS_VERSION 3</code>: 79 floats <b>relativos</b> al bot (map-agnostic) con estados P1 (stun/slide/parry/glide), Estómago (eaten_by/escala/captor) y cooldowns. <code>N_OUT</code> 14→17: dash, parry, emote (por personalidad; los comidos emotean). Brain 79→32→32→17 (4.177 pesos), ckpts v2 rechazados → regenerados (quick dm+stomach). Rewards: <code>eat</code>/<code>escape</code>/<code>big_survival</code> con pesos por especie; alarma <code>big-camper</code>. <code>train --mode stomach</code>. Commit 8cf9aed.</td></tr>
+  </table>
+</section>
+
+<section id="probe">
+  <h2>Comportamiento actual de los bots</h2>
+  <p class="sub">Salida de <code>probe --episodes 5</code> con los checkpoints s3 (<code>es-s3-g299</code>), corrida al generar este documento.
+  Media por episodio de 60 s, con 10 bots y 1 humano simulado. «sk» = spawn-kills.</p>
+  <table>
+    <tr><th>Especie</th><th class="num">Recompensa</th><th class="num">Hook</th><th class="num">Disparos a pared</th><th class="num">Caídas</th><th class="num">sk</th><th class="num">Kills bot / humano</th><th class="num">Muertes</th><th>Alarmas</th></tr>
+    <tr><td><span class="sp" style="background:var(--caz)"></span>cazadora</td><td class="num">+57,1</td><td class="num">5 %</td><td class="num">10 %</td><td class="num">1,7</td><td class="num">2,3</td><td class="num">7,5 / 1,3</td><td class="num">9,8</td><td>falls · spawn-camping · kill-trading</td></tr>
+    <tr><td><span class="sp" style="background:var(--eva)"></span>evasiva</td><td class="num">−16,2</td><td class="num">25 %</td><td class="num">29 %</td><td class="num">1,5</td><td class="num">0,5</td><td class="num">5,2 / 0,7</td><td class="num">6,9</td><td>falls · spawn-camping</td></tr>
+    <tr><td><span class="sp" style="background:var(--tan)"></span>tanque</td><td class="num">+94,1</td><td class="num"><b style="color:var(--todo)">68 %</b></td><td class="num"><b style="color:var(--todo)">55 %</b></td><td class="num">1,1</td><td class="num">1,8</td><td class="num">10,0 / 0,7</td><td class="num">8,2</td><td>hook-camping · wall-shots · spawn-camping · kill-trading · falls</td></tr>
+    <tr><td><span class="sp" style="background:var(--car)"></span>carronera</td><td class="num">+31,2</td><td class="num">2 %</td><td class="num">7 %</td><td class="num">1,2</td><td class="num">0,8</td><td class="num">4,9 / 0,7</td><td class="num">12,2</td><td>falls · spawn-camping</td></tr>
+  </table>
+  <div class="good">Kills al humano simulado: 0,7–1,3 por bot por minuto, frente a 5–10 a otros bots. El tope de foco funciona: no es 10 contra 1.</div>
+</section>
+
+<section id="bitacora">
+  <h2>Reward hacking encontrado y corregido</h2>
+  <table>
+    <tr><th>#</th><th>Hack / falla</th><th>Cómo se detectó</th><th>Corrección</th><th>Resultado</th></tr>
+    <tr><td>1</td><td>Hook-camping (bots v1)</td><td>Medición inicial: hook enganchado ~95 % del tiempo; un bot quieto el 81 %.</td><td>Desplazamiento neto en vez de distancia recorrida; penalización de hook solo a tiles, con franquicia del 45 %.</td><td>Cazadora 5 %, carronera 2 %. <b>Tanque sigue en 68 %.</b></td></tr>
+    <tr><td>2</td><td>Bots apilados (clones idénticos)</td><td>12 pares encimados al inicio con 3 spawns.</td><td>arena11 + spawn más lejano + celdas seguras.</td><td>Test: nunca a menos de 28 u.</td></tr>
+    <tr><td>3</td><td>Aimbot sin retardo</td><td>Revisión de código: si la salida de aim era chica, se apuntaba a la posición actual del objetivo, incluso tras paredes.</td><td>El fallback usa la observación retardada.</td><td>Corregido antes de entrenar.</td></tr>
+    <tr><td>4</td><td>Evasiva sin gradiente</td><td>Penalización de muerte siempre en su tope (13 muertes por partida).</td><td>Topes altos para death/fall.</td><td>5–7 muertes por partida.</td></tr>
+    <tr><td>5</td><td>Spawn-kills</td><td>Alarma en las 4 especies.</td><td>Kill y daño a recién spawneados = 0; 1 s de protección de spawn.</td><td>Todavía aparecen 0,5–2,3 por minuto.</td></tr>
+    <tr><td>6</td><td>Granada a quemarropa</td><td>Reporte F8: las «caídas» eran casi todas autodestrucción por granada propia.</td><td>Término <code>self_dmg</code> (−1,5 por punto) + test de regresión.</td><td>Cazadora: pared 30→10 %. Carronera: 47→7 %. Tanque: sin cambio.</td></tr>
+    <tr><td>7</td><td>Panel saturado en vivo</td><td>Captura: términos clavados en su tope después de unos minutos.</td><td>Ventanas de 60 s (<code>rew(ult.60s)</code>, métricas de los últimos 60 s).</td><td>Comparable con el probe.</td></tr>
+  </table>
+</section>
+
+<section id="pend">
+  <h2>Pendientes</h2>
+  <h3>Bots y RL (por prioridad)</h3>
+  <table>
+    <tr><th class="pri">Prio</th><th>Pendiente</th><th>Por qué importa / siguiente paso sugerido</th></tr>
+    <tr><td class="pri" style="color:var(--todo)">P1</td><td><b>Sesión en vivo con Cristóbal</b></td><td>Es la fase 6 del prompt. Server listo en :8304; faltan reportes F8 de una persona jugando.</td></tr>
+    <tr><td class="pri" style="color:var(--todo)">P1</td><td><b>Tanque: hook-camping</b> <span class="tag hecho">mejorado mucho</span></td><td>Tras 500 gens resume (seed 123): hook del tanque bajó 68 % → 10 % y wall-shots 55 % → 42 %, con recompensa +144. Queda vigilar que no resurja en entrenamientos futuros.</td></tr>
+    <tr><td class="pri" style="color:var(--part)">P2</td><td>Evasiva con recompensa negativa <span class="tag part">mejorada</span></td><td>Subió de −16 a ~+0,4 tras las 500 gens, pero sigue siendo la especie más débil (auto-daño y deaths altos). Opciones: revisar sus pesos de reward o más generaciones.</td></tr>
+    <tr><td class="pri" style="color:var(--part)">P2</td><td>Spawn-camping y caídas en todas las especies</td><td>Las alarmas saltan en las 4 especies (umbral de caídas: 1 por minuto; hoy 1,1–1,7). Decidir si subir la protección de spawn o el umbral, o si es ruido normal de un FFA de 11.</td></tr>
+    <tr><td class="pri" style="color:var(--part)">P2</td><td>Picos del tick en vivo</td><td>La media cumple el presupuesto de 1 ms, pero hubo máximos de hasta 8,9 ms en el server (no en el bench). Medir si vienen del <code>Mutex</code> o de tokio, del snapshot del recorder (que clona el mundo cada 50 ticks) o de la inferencia.</td></tr>
+    <tr><td class="pri" style="color:var(--muted)">P3</td><td>Del reporte F8 al test automático</td><td>Hoy el replay verifica que el reporte se reproduce, pero el test de regresión se escribe a mano.</td></tr>
+    <tr><td class="pri" style="color:var(--muted)">P3</td><td>Transferencia a humanos reales</td><td>El «humano» del entrenamiento es un bot scripteado con ruido; falta validar con personas reales.</td></tr>
+    <tr><td class="pri" style="color:var(--muted)">P3</td><td>Especies solo varían en tamaño físico</td><td>Si se quiere más contraste: velocidad o salto por especie (requiere tocar <code>physics.rs</code> y reentrenar).</td></tr>
+  </table>
+  <h3>Integración</h3>
+  <div class="bad"><b>La rama no está mergeada.</b> <code>feat/bots-rl</code> vive en el worktree <code>teeworlds-rs-bots</code>.
+  <code>main</code> sigue en <code>e9af041</code> con cambios sin commitear del otro agente (salto/desolape en <code>physics.rs</code> y <code>lib.rs</code>, y el wasm).
+  Esos cambios <b>ya están importados</b> en la rama (verificado: idénticos), así que el merge debería ser limpio después de commitearlos o descartarlos en main.
+  El server viejo de <code>main</code> sigue corriendo en :8303 sin bots v2.</div>
+  <div class="warn">Archivos compartidos tocados en la rama: <code>world.rs</code> (orden determinista de jugadores, eventos, spawns, protección), <code>physics.rs</code> (solo derives),
+  <code>tile.rs</code>, <code>proto.rs</code> (variantes al final), <code>lib.rs</code>, <code>server/main.rs</code>, <code>client/main.rs</code>.
+  Se borraron <code>bot.rs</code>, <code>bot_train.rs</code> y <code>bots/best.bin</code> (pesos v1 incompatibles).</div>
+  <h3>Roadmap original del juego (de <code>AGENTS.md</code>, sin cambios en esta rama)</h3>
+  <table>
+    <tr><th>Item</th><th>Estado</th></tr>
+    <tr><td>Validación visual multi-tab por el usuario</td><td><span class="tag todo">pendiente</span></td></tr>
+    <tr><td>Modo CTF (después de DM)</td><td><span class="tag hecho">hecho</span></td></tr>
+    <tr><td>Cargar mapas <code>.map</code> reales vía crate <code>twmap</code></td><td><span class="tag todo">pendiente</span></td></tr>
+    <tr><td>Deploy Fly.io + hosting estático (wss)</td><td><span class="tag todo">pendiente</span> · no autorizado; el <code>Dockerfile</code> no se ha vuelto a probar con el crate <code>gym</code> (supuesto: compila, porque <code>COPY . .</code> incluye <code>maps/</code>).</td></tr>
+  </table>
+</section>
+
+<section id="plan">
+  <h2>Plan de nuevas features (para revisar)</h2>
+  <p class="sub">Aprobado el 2-nov-2026: orden C → A → B, modo Evo en paralelo, hook por defecto en clic derecho, todo rebindeable.
+  Nada de esto está implementado todavía. Las decisiones abiertas están marcadas <span class="tag part">por decidir</span>.</p>
+
+  <h3>Prioridades acordadas (2-nov)</h3>
+  <table>
+    <tr><th>Prioridad</th><th>Qué</th><th>Estado</th></tr>
+    <tr><td class="pri" style="color:var(--todo)">P1</td><td>Mapas: estilos por defecto, <b>editor canvas</b> y <b>workshop</b> (Fase 7)</td><td><span class="tag ok">aprobado</span></td></tr>
+    <tr><td class="pri" style="color:var(--part)">OK</td><td><s>Parry con daño que se duplica en cada parry, ping-pong y brillo creciente (Fase 3)</s> — <b>implementado 2-nov</b></td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td class="pri" style="color:var(--part)">OK</td><td><s>Soltar el hook en el momento justo · velocidad = daño · uppercut con hammer</s> — <b>implementado 2-nov</b></td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td class="pri" style="color:var(--part)">OK</td><td><s>Deslizarse por paredes + salto de pared estilo Megaman</s> — <b>implementado 2-nov</b></td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td class="pri" style="color:var(--ok)">OK</td><td><s>Modo <b>Estómago</b> + chat texto y voz por zonas (Fase 8)</s> — <b>implementado 2-nov</b> (texto+voz WebRTC, timeout anti-escondite)</td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td class="pri" style="color:var(--part)">P2</td><td>Corrientes de aire, anclas flotantes, trampolines y aceleradores → pasan a <b>elementos de mapa</b> (paleta del editor)</td><td><span class="tag ok">aprobado, como elementos</span></td></tr>
+    <tr><td class="pri" style="color:var(--part)">P2</td><td>Resto de las ideas extra (killcam, fantasmas, choque de hooks, pulido del feel, la mancha / rey de la colina / CTF)</td><td><span class="tag part">gustan, después</span></td></tr>
+  </table>
+
+  <h3>Decisiones abiertas</h3>
+  <table>
+    <tr><th>#</th><th>Tema</th><th>Recomendación</th><th>Estado</th></tr>
+    <tr><td>D1</td><td><b>Choque de la tecla E</b>: en Teeworlds clásico <code>E</code> abre la ventana de emotes, y también la pediste para el parry.</td><td>Emotes en <code>E</code> (lo que espera un jugador de TW) y parry en <code>Q</code> por defecto. Ambos rebindeables.</td><td><span class="tag ok">aprobado</span></td></tr>
+    <tr><td>D2</td><td>Cuándo se activa el planeador (barra espaciadora)</td><td>Mantener espacio mientras caes, <b>solo después de gastar el doble salto</b>. Así quien deja apretada la tecla por costumbre no planea sin querer. Con opción para activarlo siempre.</td><td><span class="tag ok">aprobado</span></td></tr>
+    <tr><td>D3</td><td>Armas: ¿alinear con Teeworlds? (ver tabla abajo)</td><td>Sí, por partes: primero spawn con hammer + gun y pickups en el mapa; después munición y el láser que rebota; la katana al final.</td><td><span class="tag ok">aprobado</span></td></tr>
+    <tr><td>D4</td><td>Puntaje del modo Evo</td><td>sobrevivir + kills + daño (no solo sobrevivir), con zona que se achica o muerte súbita.</td><td><span class="tag ok">aprobado</span></td></tr>
+  </table>
+
+  <h3>Fase 1 · Controles rebindeables + planeador (C) — <span class="tag ok">implementado 2-nov</span></h3>
+  <ul>
+    <li><b>Binds</b>: tabla de acciones → teclas (mover, saltar/planear, hook, disparar, armas 1–6, dash, parry, emotes, F3, F8), con menú simple. Se guarda en <code>localStorage</code> mediante un plugin JS propio en <code>index.html</code> (como <code>twrs_env</code>), sin wasm-bindgen.
+    Defaults: hook = clic derecho (Shift deja de ser hook), dash = Shift, salto/planeador = Espacio.</li>
+    <li><b>Planeador</b> (física en <code>shared</code>, predicho en el cliente): mientras está activo, la gravedad baja ~70 %, la caída tiene un tope (~3,5 u/tick) y la fricción del aire es menor para conservar impulso. Hook + planeador = mucha más distancia.</li>
+    <li>Tests: altura y distancia de un planeo, y que no se active sin gastar el doble salto (si así se decide D2).</li>
+  </ul>
+
+  <h3>Fase 2 · Aturdimiento + dash (A) — <span class="tag ok">implementado 2-nov</span></h3>
+  <ul>
+    <li><b>Aturdimiento real</b>: hoy <code>CharCore.freeze_ticks</code> existe pero nada lo activa, y además congela al tee en el aire. Se cambia para que el tee caiga y choque normal, pero ignore los controles.
+    Después de un aturdimiento hay ~1,5 s de <b>inmunidad</b>, para que nadie quede encadenado.</li>
+    <li><b>Dash</b>: Shift en el aire, cayendo y con velocidad horizontal mayor a un umbral → al tocar el suelo se convierte en un deslizamiento (impulso ×1,4 con tope, poca fricción, ~0,4 s).
+    Si choca a otro tee, este queda aturdido ~0,7 s y sale empujado; quien se desliza pierde el impulso. Cooldown ~1,5 s.</li>
+    <li>Animación de aturdido (ver paleta de expresiones abajo).</li>
+  </ul>
+
+  <h3>Fase 3 · Parry (B) — <span class="tag ok">implementado 2-nov</span></h3>
+  <ul>
+    <li><b>Parry de proyectiles (actualizado 2-nov)</b>: la tecla de parry abre una ventana de ~120–160 ms. Una bala, perdigón, láser o granada que te toque dentro de ella
+    vuelve <b>hacia donde apuntas</b>, pasa a ser tuya y su <b>daño se duplica</b> por cada parry (1 → 2 → 4 → 8…). El otro jugador puede devolverla otra vez: es un ping-pong.
+    Cada parry la hace <b>más brillante y más grande, con una estela más larga</b>, para que se lea cuánto pega. También gana un poco de velocidad (~+10 %), así cada devolución es más difícil y el duelo se cierra solo.
+    Tope de seguridad: el multiplicador no pasa de ×16 (en la práctica, desde ×8 ya mata). Reemplaza la idea anterior de «devolverla y además disparar una propia».</li>
+    <li><b>Parry cuerpo a cuerpo</b>: si alguien te golpea con hammer, dash o uppercut dentro de la ventana, el aturdido es él.</li>
+    <li><b>Castigo si fallas</b>: ~1 s de cooldown y un instante vulnerable. Sin esto, los bots aprenden a apretar parry sin parar.</li>
+    <li><b>Online</b>: las balas de otros se ven ~80–150 ms atrasadas. El server evalúa el parry contra la posición que veía el cliente (compensación de lag). Es la parte más difícil de que se sienta justa.</li>
+  </ul>
+
+  <h3>Fase 4 · Expresiones, animaciones y ventana de emotes <span class="tag ok">implementada (6dcb9b2)</span></h3>
+  <p class="sub"><b>Hecho:</b> las 10 caras (normal, enojado, feliz, sorprendido, dormido, guiño, triste, sospechoso, ilusión, calma) dibujadas por código en
+  <code>client/src/emote.rs</code>; cara base por <code>id%4</code> (normal/calma/sospechoso/dormido); aturdido → cara dormido + estrellitas; auto-expresiones
+  server-side: daño→triste, kill→feliz, parry→sorpresa, stun/uppercut→dormido/sorpresa.
+  Hecho: ojos en cruz + desvanecido al morir (<code>dead_ticks</code> en snapshot), espirales animadas al aturdir (<code>FACE_DIZZY</code>, solo render), y
+  paleta de cara base elegible en menú de binds (auto/0-9, persistida <code>fp=</code>, viaja por <code>ClientMsg::Face</code> → <code>Player.face_pref</code>).</p>
+  <p class="sub">Dibujos propios (no se usan assets de Teeworlds). Cada tee recibe una expresión base distinta para diferenciarlo aunque tenga el mismo color.
+  La paleta es configurable: el jugador elige la suya y los bots la toman de forma determinista por id o especie.
+  Las expresiones de la paleta también sirven como emotes rápidos de cara (además de los íconos de la ventana de emotes).</p>
+  <div class="card" style="overflow-x:auto">
+  <svg viewBox="0 0 1000 560" width="100%" style="min-width:820px;font-family:system-ui,sans-serif">
+    <defs>
+      <g id="body"><circle r="34" fill="#232a36"/><circle r="31" fill="#72b2f2"/><circle cx="16" cy="22" r="8" fill="#1a1612"/><circle cx="-6" cy="22" r="8" fill="#1a1612"/></g>
+    </defs>
+    <text x="20" y="26" fill="#3fb950" font-size="13" font-weight="600">PALETA BASE · aprobada (5)</text>
+    <g transform="translate(100,95)"><use href="#body"/><circle cx="-8" cy="-6" r="6" fill="#fff"/><circle cx="8" cy="-6" r="6" fill="#fff"/><circle cx="-6" cy="-5" r="3" fill="#000"/><circle cx="10" cy="-5" r="3" fill="#000"/></g>
+    <text x="100" y="163" fill="#d7dde6" font-size="12.5" text-anchor="middle">normal</text>
+    <g transform="translate(300,95)"><use href="#body"/><circle cx="-8" cy="-4" r="6" fill="#fff"/><circle cx="8" cy="-4" r="6" fill="#fff"/><circle cx="-6" cy="-3" r="3" fill="#000"/><circle cx="10" cy="-3" r="3" fill="#000"/><path d="M-16 -16 L-2 -9 M16 -16 L2 -9" stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"/></g>
+    <text x="300" y="163" fill="#d7dde6" font-size="12.5" text-anchor="middle">enojado</text>
+    <g transform="translate(500,95)"><use href="#body"/><path d="M-14 -4 Q-8 -13 -2 -4 M2 -4 Q8 -13 14 -4" stroke="#1a1612" stroke-width="3.5" fill="none" stroke-linecap="round"/></g>
+    <text x="500" y="163" fill="#d7dde6" font-size="12.5" text-anchor="middle">feliz</text>
+    <g transform="translate(700,95)"><use href="#body"/><circle cx="-9" cy="-7" r="8" fill="#fff"/><circle cx="9" cy="-7" r="8" fill="#fff"/><circle cx="-9" cy="-7" r="2.2" fill="#000"/><circle cx="9" cy="-7" r="2.2" fill="#000"/></g>
+    <text x="700" y="163" fill="#d7dde6" font-size="12.5" text-anchor="middle">sorprendido</text>
+    <g transform="translate(900,95)"><use href="#body"/><path d="M-14 -5 L-2 -5 M2 -5 L14 -5" stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"/><text x="18" y="-22" fill="#d7dde6" font-size="12">z</text><text x="26" y="-32" fill="#d7dde6" font-size="9">z</text></g>
+    <text x="900" y="163" fill="#d7dde6" font-size="12.5" text-anchor="middle">dormido</text>
+    <text x="20" y="214" fill="#58a6ff" font-size="13" font-weight="600">NUEVAS · para revisar (4 + calma absoluta)</text>
+    <g transform="translate(100,283)"><use href="#body"/><circle cx="-8" cy="-6" r="6" fill="#fff"/><circle cx="-6" cy="-5" r="3" fill="#000"/><path d="M2 -5 Q8 -12 14 -5" stroke="#1a1612" stroke-width="3.5" fill="none" stroke-linecap="round"/></g>
+    <text x="100" y="351" fill="#d7dde6" font-size="12.5" text-anchor="middle">guiño</text>
+    <g transform="translate(300,283)"><use href="#body"/><circle cx="-8" cy="-4" r="6" fill="#fff"/><circle cx="8" cy="-4" r="6" fill="#fff"/><circle cx="-8" cy="-1" r="3" fill="#000"/><circle cx="8" cy="-1" r="3" fill="#000"/><path d="M-17 -12 L-4 -17 M17 -12 L4 -17" stroke="#1a1612" stroke-width="3" stroke-linecap="round"/><path d="M-13 4 q-3 5 0 7 q3 -2 0 -7z" fill="#9fd8ff" stroke="#3a7fb8" stroke-width="1"/></g>
+    <text x="300" y="351" fill="#d7dde6" font-size="12.5" text-anchor="middle">triste</text>
+    <g transform="translate(500,283)"><use href="#body"/><circle cx="-8" cy="-5" r="6" fill="#fff"/><circle cx="8" cy="-5" r="6" fill="#fff"/><circle cx="-4.5" cy="-3" r="2.6" fill="#000"/><circle cx="11.5" cy="-3" r="2.6" fill="#000"/><rect x="-15" y="-12.5" width="30" height="7.5" fill="#72b2f2"/><path d="M-15 -5 L-1 -6 M1 -6 L15 -5" stroke="#1a1612" stroke-width="2.6" stroke-linecap="round"/></g>
+    <text x="500" y="351" fill="#d7dde6" font-size="12.5" text-anchor="middle">sospechoso</text>
+    <g transform="translate(700,283)"><use href="#body"/><path d="M-8.0,-14.0 L-5.9,-8.9 L-0.4,-8.5 L-4.6,-4.9 L-3.3,0.5 L-8.0,-2.4 L-12.7,0.5 L-11.4,-4.9 L-15.6,-8.5 L-10.1,-8.9Z" fill="#ffd84a" stroke="#1a1612" stroke-width="1.2" stroke-linejoin="round"/><path d="M8.0,-14.0 L10.1,-8.9 L15.6,-8.5 L11.4,-4.9 L12.7,0.5 L8.0,-2.4 L3.3,0.5 L4.6,-4.9 L0.4,-8.5 L5.9,-8.9Z" fill="#ffd84a" stroke="#1a1612" stroke-width="1.2" stroke-linejoin="round"/></g>
+    <text x="700" y="351" fill="#d7dde6" font-size="12.5" text-anchor="middle">ilusionado</text>
+    <circle cx="900" cy="283" r="46" fill="none" stroke="#f0a540" stroke-width="2" stroke-dasharray="4 3"/><g transform="translate(900,283)"><use href="#body"/><circle r="41" fill="none" stroke="#a8e6cf" stroke-opacity=".45" stroke-width="2"/><path d="M-14 -6 Q-8 -1 -2 -6 M2 -6 Q8 -1 14 -6" stroke="#1a1612" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="-17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/><circle cx="17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/></g>
+    <text x="900" y="351" fill="#f0a540" font-size="12.5" text-anchor="middle">calma absoluta</text>
+    <text x="20" y="402" fill="#8b96a8" font-size="13" font-weight="600">ESTADOS AUTOMÁTICOS · no se eligen (los pone el juego)</text>
+    <g transform="translate(300,471)"><use href="#body"/><path d="M-14 -9 L-3 -4 L-14 1 M14 -9 L3 -4 L14 1" stroke="#1a1612" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="300" y="539" fill="#d7dde6" font-size="12.5" text-anchor="middle">dolor</text>
+    <g transform="translate(500,471)"><use href="#body"/><path d="M-8 -6 m-5 0 a5 5 0 1 1 5 5 a3 3 0 1 1 -3 -3" stroke="#1a1612" stroke-width="2.2" fill="none"/><path d="M8 -6 m-5 0 a5 5 0 1 1 5 5 a3 3 0 1 1 -3 -3" stroke="#1a1612" stroke-width="2.2" fill="none"/><g fill="#f0a540"><path d="M-30 -40 l3 6 6 1 -5 4 1 6 -5 -3 -5 3 1 -6 -5 -4 6 -1z"/><path d="M22 -46 l2.4 5 5 .8 -4 3.2 .8 5 -4.2 -2.4 -4.2 2.4 .8 -5 -4 -3.2 5 -.8z"/></g><ellipse cx="0" cy="-42" rx="34" ry="7" fill="none" stroke="#f0a540" stroke-opacity=".5" stroke-dasharray="3 3"/></g>
+    <text x="500" y="539" fill="#d7dde6" font-size="12.5" text-anchor="middle">aturdido</text>
+    <g transform="translate(700,471)"><use href="#body"/><g stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"><path d="M-14 -12 L-3 -1 M-3 -12 L-14 -1"/><path d="M3 -12 L14 -1 M14 -12 L3 -1"/></g></g>
+    <text x="700" y="539" fill="#d7dde6" font-size="12.5" text-anchor="middle">muerto (X)</text>
+  </svg>
+  </div>
+  <table style="margin-top:10px">
+    <tr><th>Expresión nueva</th><th>Cómo se dibuja</th><th>Uso sugerido</th></tr>
+    <tr><td>guiño</td><td>un ojo abierto y el otro cerrado en arco</td><td>emote de burla o complicidad; base «pícaro»</td></tr>
+    <tr><td>triste</td><td>pupilas bajas, cejas caídas hacia afuera y una lágrima</td><td>auto al perder una racha; emote «F»</td></tr>
+    <tr><td>sospechoso</td><td>párpados a media altura, pupilas de lado</td><td>base para bots evasivos; emote «sus»</td></tr>
+    <tr><td>ilusionado</td><td>ojos de estrella amarilla</td><td>auto al hacer kill múltiple o parry perfecto</td></tr>
+    <tr><td><b style="color:var(--accent)">calma absoluta</b></td><td>ojos cerrados en arco suave hacia abajo, rubor tenue y un halo verde agua muy sutil alrededor de la cabeza</td><td>emote zen; base serena (posible auto cuando planea mucho rato o queda quieto sin peligro cerca)</td></tr>
+  </table>
+  <ul>
+    <li><b>Muerte</b>: el tee queda con ojos en cruz y cae o se desvanece durante el tiempo de respawn (1,5 s), en vez del círculo vacío que se dibuja hoy.</li>
+    <li><b>Aturdido</b>: ojos en espiral y estrellas girando sobre la cabeza mientras dura.</li>
+    <li><b>Ventana de emotes</b> (bind clásico <code>E</code>, ver D1): diseño completo en la Fase 4b, más abajo.</li>
+    <li>Expresiones automáticas: dolor al recibir daño, feliz al matar, sorprendido al hacer parry.</li>
+  </ul>
+
+
+  <h3>Fase 4b · Paleta de emotes propia + emotes de los bots <span class="tag ok">rueda+protocolo ok (6dcb9b2); emote de bots por red (8cf9aed)</span></h3>
+  <p class="sub"><b>Hecho:</b> rueda radial <b>manteniendo E</b> (interior 10 caras / exterior 12 íconos, mouse elige, soltar envía, centro cancela);
+  protocolo <code>ClientMsg::Emote{id}</code> → <code>World::try_emote</code> (cooldown duro 125t en el server) → <code>PlayerSnap.emote/face+ticks</code>;
+  globo con colita + fade; preferencia «emotes de otros» en el menú (todos/sin bots/silenciados).
+  Hecho: salida de emote en la red de los bots (out 16, OBS v3 — elección por personalidad). Pendiente: emote directo bindeado a tecla.</p>
+  <p class="sub">Íconos dibujados para este juego (no son los emoticones de Teeworlds). La ventana es radial y se abre <b>manteniendo E</b>: mueves el mouse hacia un emote y lo envías al soltar.
+  El anillo interior cambia la <b>cara</b> por ~2 s; el exterior muestra un <b>globo</b> con el ícono. Las dos paletas son configurables (qué emotes aparecen y en qué orden).
+  Además se puede bindear un emote directo a una tecla (por ejemplo, <code>bind 7 emote gg</code>).</p>
+  <div class="card" style="overflow-x:auto">
+<svg viewBox="0 0 1000 540" width="100%" style="min-width:860px;font-family:system-ui,sans-serif">
+<defs><g id="body2"><circle r="34" fill="#232a36"/><circle r="31" fill="#72b2f2"/><circle cx="16" cy="22" r="8" fill="#1a1612"/><circle cx="-6" cy="22" r="8" fill="#1a1612"/></g></defs>
+<circle cx="260" cy="260" r="235" fill="#0e1116" stroke="#2a3342" stroke-width="2"/>
+<circle cx="260" cy="260" r="140" fill="#161b22" stroke="#2a3342" stroke-width="1.5"/>
+<circle cx="260" cy="260" r="48" fill="#1c2330" stroke="#2a3342"/>
+<text x="260" y="254" fill="#8b96a8" font-size="12" text-anchor="middle">mantener E</text>
+<text x="260" y="272" fill="#8b96a8" font-size="11" text-anchor="middle">soltar = enviar</text>
+<line x1="296.2" y1="124.8" x2="320.8" y2="33.0" stroke="#2a3342"/>
+<line x1="359.0" y1="161.0" x2="426.2" y2="93.8" stroke="#2a3342"/>
+<line x1="395.2" y1="223.8" x2="487.0" y2="199.2" stroke="#2a3342"/>
+<line x1="395.2" y1="296.2" x2="487.0" y2="320.8" stroke="#2a3342"/>
+<line x1="359.0" y1="359.0" x2="426.2" y2="426.2" stroke="#2a3342"/>
+<line x1="296.2" y1="395.2" x2="320.8" y2="487.0" stroke="#2a3342"/>
+<line x1="223.8" y1="395.2" x2="199.2" y2="487.0" stroke="#2a3342"/>
+<line x1="161.0" y1="359.0" x2="93.8" y2="426.2" stroke="#2a3342"/>
+<line x1="124.8" y1="296.2" x2="33.0" y2="320.8" stroke="#2a3342"/>
+<line x1="124.8" y1="223.8" x2="33.0" y2="199.2" stroke="#2a3342"/>
+<line x1="161.0" y1="161.0" x2="93.8" y2="93.8" stroke="#2a3342"/>
+<line x1="223.8" y1="124.8" x2="199.2" y2="33.0" stroke="#2a3342"/>
+<path d="M395.2 296.2 L487.0 320.8 A235 235 0 0 1 426.2 426.2 L359.0 359.0 A140 140 0 0 0 395.2 296.2Z" fill="#3fb950" fill-opacity=".14" stroke="#3fb950" stroke-opacity=".6"/>
+<line x1="260" y1="260" x2="389.9" y2="335.0" stroke="#3fb950" stroke-width="2" stroke-dasharray="4 3"/>
+<circle cx="260.0" cy="64.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(260.0,64.0)"><rect x="-3.5" y="-15" width="7" height="19" rx="3.5" fill="#f85149"/><circle cy="10" r="3.8" fill="#f85149"/></g><text x="260.0" y="100.0" fill="#d7dde6" font-size="11" text-anchor="middle">¡!</text>
+<circle cx="355.0" cy="89.5" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(355.0,89.5)"><text y="10" text-anchor="middle" font-size="30" font-weight="800" fill="#58a6ff">?</text></g><text x="355.0" y="125.5" fill="#d7dde6" font-size="11" text-anchor="middle">¿?</text>
+<circle cx="424.5" cy="159.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(424.5,159.0)"><path d="M0 12 C-18 0 -14 -14 -6 -14 C-2 -14 0 -10 0 -8 C0 -10 2 -14 6 -14 C14 -14 18 0 0 12Z" fill="#ff6b8a"/></g><text x="424.5" y="195.0" fill="#d7dde6" font-size="11" text-anchor="middle">corazón</text>
+<circle cx="450.0" cy="254.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(450.0,254.0)"><text y="6" text-anchor="middle" font-size="17" font-weight="800" fill="#ffd84a">XD</text></g><text x="450.0" y="290.0" fill="#d7dde6" font-size="11" text-anchor="middle">XD</text>
+<circle cx="424.5" cy="349.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(424.5,349.0)"><text y="6" text-anchor="middle" font-size="17" font-weight="800" fill="#3fb950">GG</text></g><text x="424.5" y="385.0" fill="#d7dde6" font-size="11" text-anchor="middle">GG</text>
+<circle cx="355.0" cy="418.5" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(355.0,418.5)"><rect x="-11" y="-2" width="15" height="14" rx="3" fill="#f0c08a" stroke="#7a5230" stroke-width="1.2"/><rect x="-3" y="-16" width="7" height="17" rx="3.5" fill="#f0c08a" stroke="#7a5230" stroke-width="1.2"/></g><text x="355.0" y="454.5" fill="#d7dde6" font-size="11" text-anchor="middle">ok</text>
+<circle cx="260.0" cy="444.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(260.0,444.0)"><path d="M-11 -4 Q-4 -4 -4 -11 M4 -11 Q4 -4 11 -4 M11 4 Q4 4 4 11 M-4 11 Q-4 4 -11 4" stroke="#f85149" stroke-width="4" fill="none" stroke-linecap="round"/></g><text x="260.0" y="480.0" fill="#d7dde6" font-size="11" text-anchor="middle">vena</text>
+<circle cx="165.0" cy="418.5" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(165.0,418.5)"><path d="M0 -15 C8 -3 11 3 0 12 C-11 3 -8 -3 0 -15Z" fill="#9fd8ff" stroke="#3a7fb8" stroke-width="1.2"/></g><text x="165.0" y="454.5" fill="#d7dde6" font-size="11" text-anchor="middle">sudor</text>
+<circle cx="95.5" cy="349.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(95.5,349.0)"><circle cy="-3" r="11" fill="#eee"/><rect x="-6" y="5" width="12" height="7" rx="2" fill="#eee"/><circle cx="-4.5" cy="-4" r="3" fill="#222"/><circle cx="4.5" cy="-4" r="3" fill="#222"/><path d="M-2 8 v4 M2 8 v4" stroke="#222" stroke-width="1.4"/></g><text x="95.5" y="385.0" fill="#d7dde6" font-size="11" text-anchor="middle">RIP</text>
+<circle cx="70.0" cy="254.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(70.0,254.0)"><path d="M0 -16 C8 -6 12 0 9 7 C7 12 -7 12 -9 7 C-12 0 -5 -4 -3 -10 C-2 -5 0 -4 2 -6 C3 -9 1 -13 0 -16Z" fill="#ff8a3d"/><path d="M0 -2 C4 2 5 5 3 8 C1 10 -3 10 -4 7 C-5 4 -2 2 0 -2Z" fill="#ffd84a"/></g><text x="70.0" y="290.0" fill="#d7dde6" font-size="11" text-anchor="middle">racha</text>
+<circle cx="95.5" cy="159.0" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(95.5,159.0)"><circle cx="-5" cy="8" r="5" fill="#c9a0ff"/><rect x="-1.5" y="-14" width="3.2" height="22" fill="#c9a0ff"/><path d="M1.5 -14 Q12 -10 9 -2 Q8 -8 1.5 -8Z" fill="#c9a0ff"/></g><text x="95.5" y="195.0" fill="#d7dde6" font-size="11" text-anchor="middle">música</text>
+<circle cx="165.0" cy="89.5" r="24" fill="#1c2330" stroke="#2a3342"/><g transform="translate(165.0,89.5)"><path d="M-12 12 C-14 -6 2 -16 14 -14 C14 0 4 14 -12 12Z" fill="#5cc87a" stroke="#2f7a45" stroke-width="1.3"/><path d="M-12 12 L10 -10" stroke="#2f7a45" stroke-width="1.5"/></g><text x="165.0" y="125.5" fill="#d7dde6" font-size="11" text-anchor="middle">hoja</text>
+<g transform="translate(260.0,161.0) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-6" r="6" fill="#fff"/><circle cx="8" cy="-6" r="6" fill="#fff"/><circle cx="-6" cy="-5" r="3" fill="#000"/><circle cx="10" cy="-5" r="3" fill="#000"/></g><text x="260.0" y="187.0" fill="#8b96a8" font-size="9.5" text-anchor="middle">normal</text>
+<g transform="translate(315.8,179.1) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-4" r="6" fill="#fff"/><circle cx="8" cy="-4" r="6" fill="#fff"/><circle cx="-6" cy="-3" r="3" fill="#000"/><circle cx="10" cy="-3" r="3" fill="#000"/><path d="M-16 -16 L-2 -9 M16 -16 L2 -9" stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"/></g><text x="315.8" y="205.1" fill="#8b96a8" font-size="9.5" text-anchor="middle">enojado</text>
+<g transform="translate(350.4,226.6) scale(.5)"><use href="#body2"/><path d="M-14 -4 Q-8 -13 -2 -4 M2 -4 Q8 -13 14 -4" stroke="#1a1612" stroke-width="3.5" fill="none" stroke-linecap="round"/></g><text x="350.4" y="252.6" fill="#8b96a8" font-size="9.5" text-anchor="middle">feliz</text>
+<g transform="translate(350.4,285.4) scale(.5)"><use href="#body2"/><circle cx="-9" cy="-7" r="8" fill="#fff"/><circle cx="9" cy="-7" r="8" fill="#fff"/><circle cx="-9" cy="-7" r="2.2" fill="#000"/><circle cx="9" cy="-7" r="2.2" fill="#000"/></g><text x="350.4" y="311.4" fill="#8b96a8" font-size="9.5" text-anchor="middle">sorpr.</text>
+<g transform="translate(315.8,332.9) scale(.5)"><use href="#body2"/><path d="M-14 -5 L-2 -5 M2 -5 L14 -5" stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"/></g><text x="315.8" y="358.9" fill="#8b96a8" font-size="9.5" text-anchor="middle">dormido</text>
+<g transform="translate(260.0,351.0) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-6" r="6" fill="#fff"/><circle cx="-6" cy="-5" r="3" fill="#000"/><path d="M2 -5 Q8 -12 14 -5" stroke="#1a1612" stroke-width="3.5" fill="none" stroke-linecap="round"/></g><text x="260.0" y="377.0" fill="#8b96a8" font-size="9.5" text-anchor="middle">guiño</text>
+<g transform="translate(204.2,332.9) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-4" r="6" fill="#fff"/><circle cx="8" cy="-4" r="6" fill="#fff"/><circle cx="-8" cy="-1" r="3" fill="#000"/><circle cx="8" cy="-1" r="3" fill="#000"/><path d="M-17 -12 L-4 -17 M17 -12 L4 -17" stroke="#1a1612" stroke-width="3" stroke-linecap="round"/></g><text x="204.2" y="358.9" fill="#8b96a8" font-size="9.5" text-anchor="middle">triste</text>
+<g transform="translate(169.6,285.4) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-5" r="6" fill="#fff"/><circle cx="8" cy="-5" r="6" fill="#fff"/><circle cx="-4.5" cy="-3" r="2.6" fill="#000"/><circle cx="11.5" cy="-3" r="2.6" fill="#000"/><rect x="-15" y="-12.5" width="30" height="7.5" fill="#72b2f2"/><path d="M-15 -5 L-1 -6 M1 -6 L15 -5" stroke="#1a1612" stroke-width="2.6" stroke-linecap="round"/></g><text x="169.6" y="311.4" fill="#8b96a8" font-size="9.5" text-anchor="middle">sospech.</text>
+<g transform="translate(169.6,226.6) scale(.5)"><use href="#body2"/><circle cx="-8" cy="-6" r="6" fill="#ffd84a"/><circle cx="8" cy="-6" r="6" fill="#ffd84a"/></g><text x="169.6" y="252.6" fill="#8b96a8" font-size="9.5" text-anchor="middle">ilusión</text>
+<g transform="translate(204.2,179.1) scale(.5)"><use href="#body2"/><path d="M-14 -6 Q-8 -1 -2 -6 M2 -6 Q8 -1 14 -6" stroke="#1a1612" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="-17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/><circle cx="17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/></g><text x="204.2" y="205.1" fill="#8b96a8" font-size="9.5" text-anchor="middle">calma</text>
+<text x="20" y="22" fill="#8b96a8" font-size="12">anillo interior: caras (10) · anillo exterior: íconos (12)</text>
+<text x="560" y="40" fill="#f0a540" font-size="14" font-weight="600">Cómo se ve en el juego (globo ~2 s sobre la cabeza)</text>
+<g transform="translate(640,170)"><path d="M-26 -96 h52 a10 10 0 0 1 10 10 v34 a10 10 0 0 1 -10 10 h-18 l-8 10 -8 -10 h-18 a10 10 0 0 1 -10 -10 v-34 a10 10 0 0 1 10 -10z" fill="#e8edf3" stroke="#2a3342"/><g transform="translate(0,-69)"><text y="6" text-anchor="middle" font-size="17" font-weight="800" fill="#3fb950">GG</text></g><use href="#body2"/><path d="M-14 -4 Q-8 -13 -2 -4 M2 -4 Q8 -13 14 -4" stroke="#1a1612" stroke-width="3.5" fill="none" stroke-linecap="round"/><text y="58" fill="#d7dde6" font-size="12" text-anchor="middle">GG + cara feliz</text></g>
+<g transform="translate(820,170)"><path d="M-26 -96 h52 a10 10 0 0 1 10 10 v34 a10 10 0 0 1 -10 10 h-18 l-8 10 -8 -10 h-18 a10 10 0 0 1 -10 -10 v-34 a10 10 0 0 1 10 -10z" fill="#e8edf3" stroke="#2a3342"/><g transform="translate(0,-69)"><path d="M0 12 C-18 0 -14 -14 -6 -14 C-2 -14 0 -10 0 -8 C0 -10 2 -14 6 -14 C14 -14 18 0 0 12Z" fill="#ff6b8a"/></g><use href="#body2"/><circle cx="-8" cy="-6" r="6" fill="#fff"/><circle cx="8" cy="-6" r="6" fill="#fff"/><circle cx="-6" cy="-5" r="3" fill="#000"/><circle cx="10" cy="-5" r="3" fill="#000"/><text y="58" fill="#d7dde6" font-size="12" text-anchor="middle">corazón + cara normal</text></g>
+<g transform="translate(640,400)"><path d="M-26 -96 h52 a10 10 0 0 1 10 10 v34 a10 10 0 0 1 -10 10 h-18 l-8 10 -8 -10 h-18 a10 10 0 0 1 -10 -10 v-34 a10 10 0 0 1 10 -10z" fill="#e8edf3" stroke="#2a3342"/><g transform="translate(0,-69)"><path d="M-12 12 C-14 -6 2 -16 14 -14 C14 0 4 14 -12 12Z" fill="#5cc87a" stroke="#2f7a45" stroke-width="1.3"/><path d="M-12 12 L10 -10" stroke="#2f7a45" stroke-width="1.5"/></g><use href="#body2"/><path d="M-14 -6 Q-8 -1 -2 -6 M2 -6 Q8 -1 14 -6" stroke="#1a1612" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="-17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/><circle cx="17" cy="4" r="4" fill="#ff9fb0" fill-opacity=".45"/><text y="58" fill="#d7dde6" font-size="12" text-anchor="middle">hoja + cara calma</text></g>
+<g transform="translate(820,400)"><path d="M-26 -96 h52 a10 10 0 0 1 10 10 v34 a10 10 0 0 1 -10 10 h-18 l-8 10 -8 -10 h-18 a10 10 0 0 1 -10 -10 v-34 a10 10 0 0 1 10 -10z" fill="#e8edf3" stroke="#2a3342"/><g transform="translate(0,-69)"><path d="M-11 -4 Q-4 -4 -4 -11 M4 -11 Q4 -4 11 -4 M11 4 Q4 4 4 11 M-4 11 Q-4 4 -11 4" stroke="#f85149" stroke-width="4" fill="none" stroke-linecap="round"/></g><use href="#body2"/><circle cx="-8" cy="-4" r="6" fill="#fff"/><circle cx="8" cy="-4" r="6" fill="#fff"/><circle cx="-6" cy="-3" r="3" fill="#000"/><circle cx="10" cy="-3" r="3" fill="#000"/><path d="M-16 -16 L-2 -9 M16 -16 L2 -9" stroke="#1a1612" stroke-width="3.5" stroke-linecap="round"/><text y="58" fill="#d7dde6" font-size="12" text-anchor="middle">vena + cara enojado</text></g>
+</svg>
+  </div>
+  <table style="margin-top:10px">
+    <tr><th>#</th><th>Ícono</th><th>Para qué</th><th>#</th><th>Ícono</th><th>Para qué</th></tr>
+    <tr><td>1</td><td>¡!</td><td>alerta, «¡cuidado!»</td><td>7</td><td>vena</td><td>enojo, «me tienes harto»</td></tr>
+    <tr><td>2</td><td>¿?</td><td>confusión, «¿qué pasó?»</td><td>8</td><td>sudor</td><td>nervios, «uf, por poco»</td></tr>
+    <tr><td>3</td><td>corazón</td><td>cariño, «buena jugada»</td><td>9</td><td>RIP</td><td>«te fuiste», remate</td></tr>
+    <tr><td>4</td><td>XD</td><td>risa</td><td>10</td><td>racha</td><td>en racha, varias kills seguidas</td></tr>
+    <tr><td>5</td><td>GG</td><td>buena partida / buena ronda</td><td>11</td><td>música</td><td>tranquilo, paseando</td></tr>
+    <tr><td>6</td><td>ok</td><td>pulgar arriba, «de acuerdo»</td><td>12</td><td>hoja</td><td>zen; guiño al planeador</td></tr>
+  </table>
+
+  <h3>Reglas para todos (jugadores y bots)</h3>
+  <ul>
+    <li><b>Cooldown duro de 2,5 s</b> por jugador, aplicado en el server: como máximo 24 emotes por minuto, y nadie puede tapar la pantalla con globos.</li>
+    <li>Protocolo: <code>ClientMsg::Emote { id }</code> → el server valida el cooldown → <code>PlayerSnap.emote</code> (id + ticks restantes) para que todos lo vean.</li>
+    <li>Opción para silenciar los emotes de los bots o de un jugador.</li>
+  </ul>
+
+  <h3>Bots que emotean «a su gusto»</h3>
+  <p>Idea: que la red <b>decida sola</b> cuándo y qué emote usar, y después observar qué asociaciones aparecen. No se le dice qué emote corresponde a cada situación.</p>
+  <table>
+    <tr><th>Pieza</th><th>Diseño propuesto</th></tr>
+    <tr><td>Salida de la red</td><td><b>Implementado (simplificado)</b>: 1 salida «quiero emotear» (out 16, umbral 0,4 — el cooldown 125t de <code>try_emote</code> lo regula)
+    y la elección del emote va por personalidad (no 22 salidas argmax). Red final 4.177 parámetros.</td></tr>
+    <tr><td>Contexto para que tenga sentido</td><td><b>Parcial</b>: la obs v3 trae contexto de estados (stun/parry/estómago/escala de enemigos), pero no «ticks desde mi última kill /
+    último emote visto cerca». Los emotes salen por personalidad — <i>pendiente</i> el contexto fino si se quiere emotear «a propósito».</td></tr>
+    <tr><td>Ni spam ni silencio</td><td>Banda de recompensa con tope (ningún término sin tope):
+      <ul style="margin:4px 0">
+        <li><b>+0,1 por emote</b> hasta 6 por minuto (tope +0,6 por episodio), para que no lo omitan del todo.</li>
+        <li><b>−0,2 por emote</b> a partir del 9º en un minuto (tope −2), para que no spameen. El cooldown de 2,5 s ya pone un techo físico.</li>
+        <li><b>Qué</b> emote eligen <b>no paga nada</b>: es «a su gusto».</li>
+      </ul></td></tr>
+    <tr><td>Métricas</td><td>Emotes por minuto, distribución por emote (entropía), y contexto: en el segundo después de matar, de morir, de recibir daño, en calma, o en respuesta a otro.</td></tr>
+    <tr><td>Alarmas</td><td><i>emote-spam</i> (&gt; 8/min), <i>emote-mudo</i> (0 en 3 min), <i>emote-monótono</i> (un mismo emote &gt; 85 % con ≥ 10 usos).</td></tr>
+    <tr><td>Panel F3 y probe</td><td>El panel muestra los últimos emotes del bot y su favorito. El <code>probe</code> agrega una tabla por especie («cazadora: 40 % GG después de matar», etc.) para ver la «personalidad» que emerge.</td></tr>
+  </table>
+  <div class="good">Actualización: <b>se premia la coherencia</b> según una <b>personalidad</b> marcada por bot (abajo). Sin ese premio, la elección quedaría por deriva:
+  como un emote no cambia la partida, cada especie terminaría con 1–3 emotes «firma» elegidos al azar.</div>
+
+  <h3>Personalidades de emote (coherencia premiada)</h3>
+  <p class="sub">La personalidad es un <b>eje aparte de la especie</b>: una cazadora puede ser burlona o respetuosa. Es data (como las especies): cada una define
+  su frecuencia preferida, qué emotes le «pegan» en cada situación, cuáles van contra su carácter y su cara base. Solo afecta a los emotes, nunca al combate,
+  para no abrir hacks de juego.</p>
+  <table>
+    <tr><th>Personalidad</th><th>Cara base</th><th>Emotes / min</th><th>Tras matar</th><th>Tras morir</th><th>Al recibir daño</th><th>En calma / otros</th><th>Va contra su carácter</th></tr>
+    <tr><td><b>Burlón</b></td><td>guiño</td><td class="num">4–8</td><td>XD, RIP, guiño</td><td>¿?, guiño (no se enoja)</td><td>XD</td><td>responde con XD a los emotes de otros</td><td>GG, corazón, triste</td></tr>
+    <tr><td><b>Respetuoso</b></td><td>normal</td><td class="num">2–5</td><td>GG, ok</td><td>GG, corazón (reconoce al que lo mató)</td><td>—</td><td>responde con ok / corazón; ok al spawnear</td><td>XD, RIP, vena</td></tr>
+    <tr><td><b>Dramático</b></td><td>sorprendido</td><td class="num">4–8</td><td>racha, ilusionado</td><td>triste, sudor</td><td>¡!, sudor</td><td>¿? cuando pierde de vista al objetivo</td><td>calma, hoja</td></tr>
+    <tr><td><b>Zen</b></td><td>calma absoluta</td><td class="num">1–3</td><td>calma (casi no reacciona)</td><td>hoja, calma</td><td>—</td><td>hoja / música en calma, sobre todo planeando</td><td>vena, XD, racha</td></tr>
+    <tr><td><b>Fanfarrón</b></td><td>feliz</td><td class="num">3–7</td><td>racha, ilusionado</td><td>vena</td><td>—</td><td>racha con ≥2 kills en 10 s; ok al spawnear</td><td>triste, sudor</td></tr>
+    <tr><td><b>Gruñón</b></td><td>enojado</td><td class="num">3–6</td><td>cara enojado</td><td>vena, enojado</td><td>vena</td><td>«¿?» a los emotes de otros</td><td>corazón, feliz</td></tr>
+  </table>
+  <p class="sub">Diferencia entre burlón y fanfarrón: el burlón se ríe <i>del otro</i> (XD, RIP); el fanfarrón celebra <i>lo propio</i> (racha, ilusionado).
+  Si sobran ideas, un 7º podría ser <b>Tímido</b> (sudor, ¿?, sorprendido; responde con ok).</p>
+
+  <table>
+    <tr><th>Pieza</th><th>Diseño</th></tr>
+    <tr><td>Situaciones (contexto)</td><td>Detectadas con eventos propios: tras matar (≤1,5 s), tras morir (mientras espera el respawn, con ojos en cruz), al recibir daño (≤1 s),
+    racha (≥2 kills en 10 s), recién spawneado (≤1 s), calma (sin enemigos visibles ≥3 s) y respuesta (vio un emote de otro cerca ≤1 s).
+    <b>Parcial</b>: la obs v3 trae estados/estómago; estas entradas finas de situación quedaron fuera (elección por personalidad).</td></tr>
+    <tr><td>Una red por especie, varias personalidades</td><td>La personalidad entra a la red como one-hot (6 entradas). En el entrenamiento cada asiento recibe una personalidad al azar,
+    así la misma red de especie aprende a «actuar» las 6. Entrenar 4 especies × 6 personalidades por separado (24 poblaciones) costaría ~6×.</td></tr>
+    <tr><td>Recompensa de emotes (todo con tope)</td><td>
+      <ul style="margin:4px 0">
+        <li><b>frecuencia</b>: +0,1 por emote mientras esté dentro de la banda de su personalidad (tope +0,6/min); −0,2 por cada emote sobre el máximo (tope −2).</li>
+        <li><b>afinidad</b>: +0,15 si el emote le «pega» a su personalidad en esa situación; −0,1 si va contra su carácter (tope ±1,5 por episodio).</li>
+        <li><b>consistencia</b>: al cerrar cada minuto, en cada situación con ≥3 emotes, +0,3 × (proporción del emote más usado − 0,5) si es positiva (tope +1). Premia tener «firma» dentro de lo que le pega.</li>
+        <li>Escala chica a propósito: una kill vale +10, así que los emotes nunca compiten con pelear.</li>
+      </ul></td></tr>
+    <tr><td>Asignación en el server</td><td><code>PERSONALITIES=burlon,respetuoso,…</code> o una al azar determinista por bot. Se muestra en el nombre o en el panel: <code>cazadora-1 · burlón</code>.
+    Comando en vivo: <code>personality &lt;bot&gt; &lt;p&gt;</code>.</td></tr>
+    <tr><td>Métricas y alarmas</td><td>Coherencia por bot (% de emotes con afinidad), proporción del favorito por situación, y frecuencia frente a su banda.
+    Alarma nueva: <i>fuera-de-personaje</i> (afinidad &lt; 30 % con ≥ 10 emotes). El panel F3 muestra personalidad, coherencia y últimos emotes.</td></tr>
+    <tr><td>Respeto al jugador</td><td>Opción «bots burlones conmigo: sí/no». La burla <b>no depende de estar cerca de la víctima</b>,
+    para no incentivar quedarse junto a un respawn a burlarse (sería spawn-camping disfrazado).</td></tr>
+  </table>
+
+  <h3>Fase 5 · Audio — <b>IMPLEMENTADO</b></h3>
+  <ul>
+    <li><code>macroquad</code> con <code>features=["audio"]</code> (quad-snd). Verificado: <code>__wbg_</code> = 0, sin wasm-bindgen.</li>
+    <li><code>ServerMsg::Events{tick,events}</code>: el server acumula <code>world.events</code> por tick (<code>pending_events</code>) y los envía tras cada Snapshot; la sim no se muta por audio (determinismo intacto).</li>
+    <li><code>client/sound.rs</code>: 22 SFX sintetizados en runtime (WAV PCM propio, sin assets): disparo por arma, hit, kill, muerte, saltos, hook fire/grab, dash, parry, planeo, slide, emote, respawn, stun, comer/eyectar, victoria.</li>
+    <li><code>LocalSfx</code> detecta flancos del CharCore predicho → sonido inmediato sin latencia; eventos remotos con atenuación <code>1/(1+d/600)</code> según distancia al oído; pops de emotes ajenos por flanco en snapshot.</li>
+    <li>Slider de volumen (0–100%) y toggle de sonido en el menú Esc, persistidos en <code>twrs_binds_v1</code> (claves <code>v</code>/<code>u</code>); el mute de emotes ajenos sigue separado. El navegador exige un clic antes de oír (autoplay policy) — los plays previos se descartan solos.</li>
+  </ul>
+
+  <h3>Fase 6 · Modo Evo — <b>IMPLEMENTADO</b></h3>
+  <ul>
+    <li><code>MODE=evo</code> (<code>GameMode::Evo</code>): rondas sin respawn. Cierra cuando queda ≤1 vivo por especie; anti-camping: tras 60 s una <b>zona circular se achica</b> (50 s de cierre hasta r=3 tiles; fuera = 1 dmg/0,6 s). Celebración de 3 s y ronda nueva con todos respawneados.</li>
+    <li>Puntaje D4 en sim: <code>supervivencia(s) + 25·kills + daño</code> (campos <code>evo_alive/kills/dmg</code> por ronda). El mejor de cada especie pasa intacto; el resto hereda copia con <b>mutación σ=0.015</b> (determinista por ronda+slot). <code>bots/evo/&lt;esp&gt;/ronda_N.bin</code> guarda el linaje y <code>best.bin/best.txt</code> el mejor histórico — si el ganador puntúa peor que el best, el linaje <b>vuelve al best</b>.</li>
+    <li>Quien entra o muere a mitad de ronda es <b>espectador</b> hasta la siguiente (banner en el cliente). El humano no evoluciona; los bots rotan su ckpt (log <code>evo rN: &lt;esp&gt; ganó …</code>).</li>
+    <li>Protocolo: <code>Snapshot.evo_round/evo_phase/zone_c/zone_r/evo_winners</code> + <code>PlayerSnap.evo_score</code>. Cliente: anillo de zona, HUD «RONDA n · pts», lista de ganadores por especie en la celebración. 4 tests en shared (sin respawn, cierre+reset, espectador, zona mata). Verificado e2e en :8305.</li>
+  </ul>
+
+
+  <h3>Fase 7 · Mapas: estilos por defecto, editor canvas y workshop</h3>
+  <p class="sub">Hoy existen 3 mapas ASCII (<code>arena11</code>, <code>puzzle1</code>, <code>probe_tiny</code>) y el formato solo conoce 8 tipos de celda
+  (<code>#</code>, <code>N</code>, <code>X</code>, <code>F</code>, <code>1</code>–<code>9</code>, <code>S</code>, <code>.</code>). Para todo lo siguiente hace falta un <b>formato v2</b>.</p>
+  <table>
+    <tr><th>Pieza</th><th>Diseño propuesto</th></tr>
+    <tr><td><b>Formato de mapa v2</b> <span class="tag ok">implementado</span></td><td>Grilla de tiles + capa de <b>elementos</b> con parámetros (corriente: dirección y fuerza; trampolín: potencia; acelerador: dirección; ancla; checkpoints, inicio y meta de carrera; pickups; banderas CTF)
+    + metadatos (nombre, autor, estilo, jugadores recomendados, versión). Serializado con postcard (binario <code>.twmap</code>) y JSON (<code>.json</code>) para inspección. El ASCII actual se sigue pudiendo importar y ganó chars de elementos
+    (<code>W V O B &gt; &lt; h m g r l C R</code>). <code>Map::validate(estilo)</code> chequea spawns, meta alcanzable por BFS y elementos en rango.
+    <br><b>En sim (commit 1f34702):</b> corrientes empujan (×2 con planeador), aceleradores, trampolines, anclas flotantes enganchables por el hook, pickups con respawn ~10 s y checkpoints de carrera que mueven el respawn personal.
+    <b>Armas D3 paso 1:</b> se nace solo con martillo+pistola; escopeta/granada/láser salen de pickups del mapa (arena11 ya los tiene, +4 anclas aéreas). El server acepta <code>--map x.twmap|x.json|x.txt</code> y el cliente dibuja todos los elementos.</td></tr>
+    <tr><td><b>Mapas por defecto, por estilo</b> <span class="tag hecho">hecho (17 mapas)</span></td><td>
+      <code>spawn_pos</code> en Race: checkpoint personal &gt; RaceStart &gt; spawns. Test <code>mapas_default_validos</code> regresa los 17 contra <code>validate</code> de su estilo.
+      <ul style="margin:4px 0">
+        <li><b>PvP/DM</b>: arena11, duel1 (chico), arena_big (grande, rutas aéreas con anclas + trampolines).</li>
+        <li><b>Carrera</b>: race_ckpt (checkpoints), race_hook (técnica con hook y pozos), race_long (larga, anclas + checkpoints).</li>
+        <li><b>Puzle co-op</b>: puzzle1, puzzle2 (acelerador + pickups), puzzle3 (corrientes + muerte).</li>
+        <li><b>Parkour</b>: parkour1, parkour2 (corrientes ↑↓ + planeador + anclas), parkour3 (cadena de anclas + trampolines).</li>
+        <li><b>Otros</b>: ctf1 (stands <code>a</code>/<code>b</code>), stomach1, evo1, mancha1, koth1 (colina <code>K</code>).</li>
+      </ul>
+      Cada mapa por defecto se valida automáticamente: spawns suficientes para su modo, meta alcanzable y, cuando aplique, un bot corredor que lo complete.</td></tr>
+    <tr><td><b>Editor canvas</b> <span class="tag ok">implementado (b7c5cf2)</span></td><td>Modo <code>/#editor</code> dentro del cliente (nativo: arg <code>editor</code>). Pincel/borrado de tiles, spawns, paleta de elementos
+    con dirección/power/pickup, undo/redo, pan+zoom, <b>Probar</b> (Enter, offline), <b>Validar</b> (V), F2 nombre, T estilo, S guardar y N nuevo en localStorage (<code>twrs_editor_map</code>), F5 exporta JSON.
+    Verificado en navegador: pintar, spawn, elemento, playtest con física real. Hecho: <b>R</b> cicla pincel→rectángulo(arrastra+preview)→relleno(flood),
+    <b>Alt+flechas</b> redimensiona el mapa (poda spawns/elementos fuera) con <code>Map::resize</code>/<code>flood_fill</code> testeados en shared.
+    Bot en playtest: <b>O</b> dentro de «Probar» spawnea una cazadora con <code>Brain::random</code> + <code>Mind</code> Normal (roja) — combate real contra tu mapa.</td></tr>
+    <tr><td><b>Workshop (pozo común)</b> <span class="tag ok">implementado (37551b7 + c7cdafb)</span></td><td>API v1 en el server: <code>POST /api/workshop/upload|vote|report|play</code>, <code>GET /api/workshop/list|/api/workshop/map/&lt;id&gt;</code>.
+    Almacenamiento: dir <code>workshop/</code> con <code>&lt;id&gt;.twmap</code> + sidecar JSON (score, descargas, partidas, reportes); identidad por device-token con rate limit.
+    Cliente: plugin JS <code>twrs_http</code> (fetch async con poll por id — sin wasm-bindgen) + <code>client/src/workshop.rs</code> (token persistente en localStorage).
+    Desde el editor: <b>U</b> sube (valida antes), <b>B</b> lista con score, dígito descarga e importa. Verificado end-to-end en navegador (subir→listar→descargar→editar).
+    Hecho: búsqueda/filtro en el browse (letras filtran por nombre/autor/id), selección ↑↓ y <b>voto en sala</b> (+/− sobre la fila, <code>POST /api/maps/{id}/vote</code>, score parcheado en vivo).
+    Miniaturas: <code>Map::thumb</code> (raster ASCII al subir) dibujado bajo la fila seleccionada. Moderación: <code>status</code> ≥3 reportes marca <code>!</code> en la lista y ⇧M reporta el mapa elegido.</td></tr>
+    <tr><td><b>Bots en mapas nuevos</b></td><td><b>Obs v3 hecha</b> (8cf9aed): coordenadas relativas, ya no memorizan arena11. Pendiente: entrenar con un <b>generador procedural de mapas</b>
+    + los mapas por defecto (y, más adelante, una muestra del workshop) para generalizar de verdad.</td></tr>
+  </table>
+
+  <h3>Fase 8 · Modo Estómago + chat de voz por zonas — <span class="tag ok">implementado 2-nov</span> (texto + voz WebRTC + timeout)</h3>
+  <table>
+    <tr><th>Pieza</th><th>Diseño propuesto</th></tr>
+    <tr><td><b>Estado 2-nov</b></td><td><b>Implementado y verificado</b> (commit <code>69e793c</code>): <code>GameMode::Stomach=3</code> (<code>MODE=stomach</code>/<code>--mode stomach</code>);
+    matar a otro tee lo come (<code>Player.eaten_by</code>) — no actúa, no recibe daño, viaja pegado al captor y se dibuja como mini-tee en su panza.
+    Muerte del captor (hit/tile/desconexión) libera a los comidos con impulso hacia arriba + protección; comer a alguien con ocupantes libera a los anidados.
+    Victoria cuando queda un solo libre (<code>StomachWon</code> + banner + reset de ronda). Crecimiento/leech compartido con <code>eat</code>.
+    <b>Chat de texto por zonas</b> con las reglas aprobadas: libre→libres, mismo estómago/captor, y «pío pío» para el resto (<code>kind</code> 0/1/2), rate limit 1 msg/s;
+    bind <b>T</b> rebindeable, Enter envía, Esc cancela, log con fade. E2E: <code>modecheck</code> muestra <code>eaten/growth/chat</code> y el navegador enruta bien.<br>
+    <b>Timeout anti-escondite</b> (<code>a03a1a6</code>): ronda de 3 min (<code>STOMACH_ROUND_TICKS=9000</code>); al expirar gana el mejor libre (score→scale→id) y se reinicia tras la celebración. HUD con cuenta regresiva.<br>
+    <b>Voz WebRTC</b> (<code>39b1e44</code>): plugin JS <code>twrs_voice</code> en <code>index.html</code> (sin wasm-bindgen), señalización por el WS del juego con pares decididos por el server
+    (<code>VoicePeers</code>, dir 1/2/3), mesh P2P con STUN, ofrece el id menor, PTT en <b>V</b> (rebindeable), y <b>«pío» sintetizado</b> local para quien habla y no oigo en real — la voz real nunca sale del estómago.
+    Test unitario <code>voice_hears_rules</code> + e2e de señalización con dos sondas.</td></tr>
+    <tr><td><b>Reglas</b></td><td>Al matar a otro tee <b>te lo comes</b>: queda dentro de tu estómago (se ve como siluetas chicas en tu panza) y creces un poco.
+    Si te matan, todos los que llevabas dentro <b>salen disparados</b> en tu posición, con un instante de protección. Gana quien se come a todos los demás, o el último sin comer al acabar el tiempo.
+    Los comidos no juegan, pero ven la partida desde dentro de su captor. Evoluciona el modo <code>eat</code> actual (que ya hace crecer al que mata).</td></tr>
+    <tr><td><b>Quién oye a quién</b></td><td>
+      <ul style="margin:4px 0">
+        <li><b>Comidos</b>: solo hablan y se oyen <b>entre los que están en el mismo estómago</b>.</li>
+        <li><b>Jugadores vivos fuera</b>: hablan entre ellos. De cada estómago no oyen voces, solo <b>«pío pío» de pollitos llorando</b>.</li>
+        <li><b>El que se los comió</b>: oye las voces de los que lleva dentro <b>y</b> a los demás vivos.</li>
+      </ul></td></tr>
+    <tr><td><b>Privacidad del «pío»</b></td><td>La voz de los comidos <b>nunca sale</b> hacia quienes están fuera: el navegador detecta cuándo alguien habla y lo convierte en un pío sintetizado.
+    Así la voz real nunca se transmite donde no debe (nada de filtrar audio después).</td></tr>
+    <tr><td><b>Chat de voz (técnica)</b></td><td>WebRTC hecho <b>en JavaScript</b> (plugin en <code>index.html</code>), sin wasm-bindgen. El server de juego hace de señalización por el WebSocket existente y
+    envía las reglas de quién oye a quién en cada momento (según el estado del modo). Topología P2P en malla para salas chicas (≤ 8 humanos), con STUN público.
+    Para redes difíciles hace falta un TURN y para salas grandes un SFU: costo y deploy extra.</td></tr>
+    <tr><td><b>Consentimiento</b></td><td>Micrófono opcional, pulsar para hablar por defecto, silenciar por jugador y nada de grabación en el server.</td></tr>
+    <tr><td><b>Bots</b></td><td>Los bots comidos emotean dentro del estómago (los demás comidos los ven) y fuera se manifiestan como píos. Nueva recompensa del modo: comer, escapar, y sobrevivir siendo grande.
+    Ojo con el riesgo de que el más grande se esconda: zona que se achica o tiempo límite.</td></tr>
+  </table>
+  <div class="warn">El chat de voz es la pieza más cara del plan: WebRTC + señalización + TURN/SFU, pruebas entre navegadores y redes, y moderación.
+  Recomiendo hacer primero el modo Estómago con <b>chat de texto</b> por zonas (las mismas reglas de quién ve a quién) y sumar la voz después.</div>
+
+  <h3>Ideas extra de mecánicas (ver «Prioridades acordadas» para lo aprobado)</h3>
+  <p class="sub">Objetivo: que se sienta Teeworlds pero de 2026. Cuatro pilares: <b>velocidad = poder</b>, <b>el aire como escenario</b>,
+  <b>habilidad de timing</b> y <b>legibilidad moderna</b>. Ordenadas por cómo encajan con lo ya aprobado (planeador, dash, parry).</p>
+  <table>
+    <tr><th>#</th><th>Idea</th><th>Qué es</th><th>Por qué encaja</th><th>Costo</th><th>Riesgo con bots</th></tr>
+    <tr><td>1</td><td><b>Soltar el hook en el momento justo</b> <span class="tag hecho">hecho</span></td><td>Soltar el hook cerca del punto más alto del balanceo da un pequeño empujón extra, con un destello como señal.</td><td>Premia el timing del movimiento clásico sin cambiarlo. Se combina con planeador y dash.</td><td><span class="tag hecho">hecho</span></td><td>Implementado 2-nov: hook-release boost +3 según velocidad al soltar enganchado.</td></tr>
+    <tr><td>2</td><td><b>Corrientes de aire</b> (tile <code>W</code>/<code>V</code>) <span class="tag hecho">hecho</span></td><td>Zonas que empujan hacia arriba o de lado; con el planeador te elevan.</td><td>Hace que la hoja tenga sentido en mapas grandes: rutas aéreas y atajos.</td><td><span class="tag hecho">hecho</span></td><td>Elemento de mapa v2 (Fase 7): empuje dir*power/tick, ×2 con planeador. Alarma glide-forever cubre el riesgo.</td></tr>
+    <tr><td>3</td><td><b>Velocidad = daño</b> (hammer y dash) <span class="tag hecho">hecho</span></td><td>El daño y el empuje del hammer escalan con tu velocidad (con tope).</td><td>Une movimiento y combate: quien se mueve bien pega más fuerte. Sigue siendo legible.</td><td><span class="tag hecho">hecho</span></td><td>Implementado 2-nov: <code>speed_dmg_boost</code> ×(1+v/25) tope ×2 en martillo.</td></tr>
+    <tr><td>4</td><td><b>Repetición instantánea / killcam</b> <span class="tag hecho">hecho</span></td><td>Al morir, ver los últimos ~4 s desde el asesino.</td><td><b>Casi gratis</b>: reutiliza el recorder determinista de F8 (snapshots + inputs → replay exacto).</td><td><span class="tag hecho">hecho</span></td><td>Implementado cliente-only (8cb855c): ring de 150 snapshots autoritativos + replay interpolado con cámara en el asesino; banner «te mató X/el mapa/tú mismo»; se salta con salto/fuego o al respawnear.</td></tr>
+    <tr><td>5</td><td><b>Fantasmas en race</b> <span class="tag hecho">hecho</span></td><td>Correr contra tu mejor tiempo (o el de un bot entrenado para la carrera) como fantasma transparente.</td><td>La misma tecnología de replay; muy DDNet, pero moderno.</td><td><span class="tag hecho">hecho</span></td><td>Implementado cliente-only (b7f0378): grabo inputs por tick; al mejorar el record persiste en localStorage (postcard hex por mapa) y el ghost re-simula determinista en lockstep con la predicción — tee translúcido con nombre, sin colisión. Pendiente: fantasma de bot corredor.</td></tr>
+    <tr><td>6</td><td><b>Deslizarse por paredes + salto de pared</b> <span class="tag hecho">hecho</span></td><td>Pegado a una pared caes más lento, y saltar te empuja hacia afuera.</td><td>Hay base: <code>JUMP_RESET=any</code> ya recarga saltos al tocar paredes. Encadena con dash y hook.</td><td><span class="tag hecho">hecho</span></td><td>Implementado 2-nov: wall-slide Megaman (caída a 4, dash 12) + wall-jump cargado +50 %.</td></tr>
+    <tr><td>7</td><td><b>Uppercut con hammer cargado</b> <span class="tag hecho">hecho</span></td><td>Mantener disparo con hammer ~0,4 s y soltar lanza al rival hacia arriba.</td><td>Abre combos aéreos: uppercut → hook → hammer en el aire. Se defiende con parry.</td><td><span class="tag hecho">hecho</span></td><td>Implementado 2-nov: carga ~0,4 s, lanza al rival hacia arriba, inmunidad 60 t anti-combo.</td></tr>
+    <tr><td>8</td><td><b>Anclas flotantes</b> (tile <code>O</code>) <span class="tag hecho">hecho</span></td><td>Puntos enganchables en el aire, sin pared detrás.</td><td>Imprescindibles en mapas grandes para recorridos de puro hook.</td><td><span class="tag hecho">hecho</span></td><td>Elemento de mapa v2 (Fase 7): el hook engancha en radio 14 u en pleno aire; arena11 tiene 4.</td></tr>
+    <tr><td>9</td><td><b>Choque de hooks</b> <span class="tag hecho">hecho</span></td><td>Si dos hooks se cruzan en el aire se anulan con una chispa (y quizás un mini aturdimiento).</td><td>Un duelo de reflejos dentro del movimiento clásico.</td><td><span class="tag hecho">hecho</span></td><td>Determinista en shared: barrido segmento prev→post de cabezas en vuelo (viajan 80 u/tick, un sample puntual tuneliza), dist&lt;24 → ambos Idle + <code>Event::HookClash</code>. Chispa visual + clang en el cliente. Con hook mantenido relanzan y vuelven a chocar (refire como TW). 2 tests.</td></tr>
+    <tr><td>10</td><td><b>Trampolines y aceleradores</b> (tiles <code>B</code>, <code>&gt;</code>) <span class="tag hecho">hecho</span></td><td>Rebote vertical fuerte y empuje horizontal.</td><td>Ritmo y rutas en mapas grandes; el «loop» que describiste.</td><td><span class="tag hecho">hecho</span></td><td>Elementos de mapa v2 (Fase 7): trampolín fija vel.y=-power; aceleradores <code>&gt;</code>/<code>&lt;</code> empujan dir*power/tick. Alarma glide-forever/dash-loop vigilan el farmeo.</td></tr>
+    <tr><td>11</td><td><b>Pulido 2026 del feel</b> <span class="tag hecho">hecho</span></td><td>Hitstop de 2–3 frames en golpes fuertes, sacudida leve de pantalla, estela a alta velocidad, partículas, números de daño opcionales y kill feed.</td><td>Es lo que más hace «sentir moderno» con el mismo gameplay.</td><td><span class="tag hecho">hecho</span></td><td>Implementado cliente-only (585d347) sobre ServerMsg::Events: hitstop ~50ms en golpes propios ≥5dmg (congela la sim predicha), shake por daño recibido/kill, números de daño flotantes, bursts temáticos por evento (stun/parry/uppercut/spawn…), estela cian a &gt;17 u/tick y kill feed «A &gt; B [arma] +asist.» con fade.</td></tr>
+    <tr><td>12</td><td><b>Modos cortos nuevos</b> <span class="tag hecho">hecho</span></td><td>«La mancha» con hook (el marcado engancha para pasarla), rey de la colina y CTF (ya en el roadmap).</td><td>Usan las mismas mecánicas con otros objetivos; también son buenos para bots.</td><td><span class="tag hecho">hecho</span></td><td><b>La mancha</b>: <code>MODE=mancha</code> (mode 5), el marcado la pasa al que su hook agarre (o al que lo mate), +1/s a los no-marcados, reasignación determinista al morir/salir. <b>KOTH</b>: <code>MODE=koth</code> (mode 6), zonas <code>K</code>, +1 cada 0,5 s solo para el único vivo dentro — disputada o vacía no suma; zona dorada + HUD «COLINA: X». <b>CTF</b>: <code>MODE=ctf</code> (mode 7), equipos rojo/azul con balance al entrar, stands <code>a</code>/<code>b</code>, captura = +5 y +1 al equipo (requiere tu bandera en casa), sueltas vuelven a los 30 s; tees tintados, marcador y feed. Tests de exclusividad/captura/drop en shared; los 3 verificados e2e en :8305.</td></tr>
+  </table>
+  <div class="good">Mi top 5 para empezar: <b>1</b> (soltar en el momento justo), <b>2</b> (corrientes de aire, que dan sentido a la hoja), <b>11</b> (pulido del feel),
+  <b>4</b> (killcam casi gratis gracias al recorder) y <b>6</b> (deslizarse y saltar en paredes). Todo es física en <code>shared</code>
+  (determinista y predicha en el cliente) o tiles nuevos en el formato ASCII, así que no cambia la arquitectura.</div>
+
+  <h3>Impacto en los bots (después de cada fase de movimiento) — <span class="tag ok">implementado 3-nov (8cf9aed)</span></h3>
+  <ul>
+    <li><code>OBS_VERSION 3</code> <b>hecho</b>: 79 floats relativos al bot — propio (aturdido, cooldowns dash/parry, planeando, estómago, escala) y del enemigo (mismos estados + escala); ya no usa posición absoluta del mapa.</li>
+    <li>Salidas nuevas <b>hechas</b>: dash (out 14), parry (15) y emote (16). Reentrenado quick de las 4 especies en dm y stomach (términos eat/escape/big_surv activos).</li>
+    <li>Multi-mapa <b>hecho</b> (625c112, d44aa62): <code>EnvCfg.alt_maps</code> rota mapas por seed en <code>reset</code>; train usa arena11+duel1 (race: puzzle1+ckpt+parkour) y <code>--procedural N</code> añade arenas generadas por <code>Map::procedural(seed)</code>. Banda de recompensa de emotes <b>hecha</b> (8bdd031): +0,1 ≤6/min cap 0,6, −0,2 ≥9/min cap −2, +0,3 celebración post-kill. Pendiente: entrenamiento largo.</li>
+    <li>Alarmas <b>hechas</b> (2b8fcad): <i>parry-spam</i>, <i>stun-lock</i>, <i>glide-forever</i>, <i>dash-loop</i>, <i>emote-spam</i>, <i>emote-mute</i>, <i>emote-monotone</i> + <i>big-camper</i>. 19 en total.</li>
+    <li>Replay: <b>fix determinismo</b> — los emotes de bots/humanos se graban en <code>TickRec.emotes</code> (REPORT_VERSION=2) y el replay los reaplica; los emotes de clientes se encolan a un punto fijo del tick. Antes rompía <code>inputs</code> (el emote no va en Input pero muta el hash).</li>
+  </ul>
+
+  <h3>Armas: Teeworlds vs. este clon</h3>
+  <table>
+    <tr><th>Arma (Teeworlds)</th><th>En Teeworlds</th><th>En este clon hoy</th><th>Pendiente para alinear</th></tr>
+    <tr><td>Hammer</td><td>3 de daño, cuerpo a cuerpo, sin munición; de spawn</td><td>3 de daño, alcance 78u, empuje 18, suelta el hook de la víctima</td><td>Casi igual. Revisar el feel junto con dash y parry.</td></tr>
+    <tr><td>Pistol (gun)</td><td>1 de daño, munición que se recarga sola; de spawn</td><td>1 de daño, <b>10 balas, recarga +1/s</b>; de spawn</td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td>Shotgun</td><td>5 perdigones de 1; se recoge en el mapa</td><td>5 perdigones de 1; <b>pickup `g` con 10 balas</b></td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td>Grenade</td><td>Hasta 6 de daño en área; auto-daño menor (~3); se recoge</td><td>Hasta 6 de daño en área; <b>auto-daño topado a 3</b> (grenade-jump OK); pickup `r` con 10</td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td>Laser</td><td>Rayo instantáneo que <b>rebota</b> en paredes; se recoge</td><td>Proyectil rápido (5 de daño) que <b>rebota hasta 3 veces</b>; pickup `l` con 10</td><td><span class="tag ok">hecho</span> (proyectil con rebotes; hitscan queda como opción futura)</td></tr>
+    <tr><td>Katana (ninja)</td><td>Power-up temporal con embestida</td><td><b>Implementada</b>: pickup `k` → 15 s de katana (arma 6): embestida + golpe melee 5 con kb 24 en cono frontal</td><td><span class="tag ok">hecho</span></td></tr>
+    <tr><td>Corazones / escudos</td><td>Pickups de vida y armadura en el mapa</td><td><b>Existen</b> (`h`/`m`, +4 vida/armadura, respawn ~10 s)</td><td><span class="tag ok">hecho</span> (fila corregida — ya estaban en mapa v2)</td></tr>
+  </table>
+  <div class="warn">Cualquier cambio de armas o física cambia lo que aprendieron los bots: cada fase termina con reentreno y probe.</div>
+</section>
+
+<section id="cmd">
+  <h2>Comandos útiles</h2>
+<pre># jugar (server de esta rama, ya corriendo)
+http://localhost:8304/#cris          F3 = panel · F8 = reportar
+
+# operador en vivo (solo desde la máquina)
+curl 'http://127.0.0.1:8304/admin?cmd=status'
+curl 'http://127.0.0.1:8304/admin?cmd=difficulty%20easy'
+curl 'http://127.0.0.1:8304/admin?cmd=freeze%20tanque'
+curl 'http://127.0.0.1:8304/admin?cmd=reload'      # tras reentrenar
+
+# gym
+cargo run --release -p gym --bin train -- --seed 4        # ~8 min, escribe bots/&lt;esp&gt;/latest.bin
+cargo run --release -p gym --bin train -- --quick         # humo, ~2 s
+cargo run --release -p gym --bin probe -- --episodes 5
+cargo run --release -p gym --bin replay -- reports/&lt;id&gt;
+cargo run --release -p gym --bin bench
+cargo test --workspace --release
+
+# build (orden obligatorio)
+cargo build --release -p client --target wasm32-unknown-unknown
+cp target/wasm32-unknown-unknown/release/teeworlds-rs.wasm teeworlds_rs.wasm
+strings teeworlds_rs.wasm | grep -c __wbg_                # debe dar 0
+cargo build --release -p server
+PORT=8304 setsid nohup ./target/release/teeworlds-rs-server &gt; /tmp/twrs-bots-server.log 2&gt;&amp;1 &amp;</pre>
+</section>
+
+<section id="shot">
+  <h2>Captura del panel F3 (headless, 10 bots, checkpoints s3)</h2>
+  <img class="shot" alt="Panel de debug F3" src="data:image/png;base64,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">
+  <p class="sub">Arriba a la derecha: bot más cercano (tanque-1 → objetivo cazadora-3), métricas de los últimos 60 s, recompensa por término y alarmas.
+  La línea amarilla une al bot con su objetivo; el <code>!</code> rojo marca bots con alarmas.</p>
+</section>
+
+</main>
+<footer>Generado a partir del estado real del worktree: git log, probe y bench corridos al momento, AGENTS.md y reportes F8.</footer>
+</body>
+</html>

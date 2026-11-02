@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/shared", "crates/server", "crates/client", "crates/gym", "crates/recorder"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["alloc"] }
+shared = { path = "crates/shared" }
+
+[profile.release]
+opt-level = 3
+lto = true
